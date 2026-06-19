@@ -245,6 +245,8 @@ footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevate
   <h2 class="section-title">Keep credentials out of your agent code</h2>
   <p class="section-sub">The Microsoft Entra Auth SDK ships as a <strong>sidecar container</strong> that runs next to your agent and owns every token operation — client-credentials, FIC, OBO, caching, refresh — so your code never touches a secret.</p>
 
+  <div class="callout info" style="margin-top:18px"><strong>New to the term "sidecar"?</strong> It's a small helper container that's deployed right alongside your main application — think of a motorcycle sidecar riding next to the bike. The two run side by side, share the same local network, and start and stop together, but stay separate programs. Here, the sidecar's single job is handling identity and tokens, so that messy, security-sensitive logic lives <em>outside</em> your agent's own code.</div>
+
   <div class="pod">
     <span class="pod-label">Pod / compose service — shared local network</span>
     <div class="pod-row">
@@ -578,6 +580,5 @@ document.getElementById("themeToggle").addEventListener("click",()=>{
   document.documentElement.setAttribute("data-theme",cur==="dark"?"light":"dark");
 });
 </script>
-<script src="glossary.js"></script>
 </body>
 </html>
