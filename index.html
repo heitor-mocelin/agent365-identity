@@ -162,18 +162,53 @@ section { max-width: 1180px; margin: 0 auto; padding: 64px 20px; }
 /* ---------- Mind map ---------- */
 .mindmap-wrap {
   position: relative; background: var(--cp-bg-elevated);
-  border: 1px solid var(--cp-border); border-radius: 20px; padding: 8px;
-  box-shadow: var(--cp-shadow); overflow: hidden;
+  border: 1px solid var(--cp-border); border-radius: 20px; padding: 28px 16px 8px;
+  box-shadow: var(--cp-shadow); overflow-x: auto;
 }
-.mindmap-hint { font-size: .82rem; color: var(--cp-text-soft); text-align: center; padding: 10px; }
-svg.mindmap { width: 100%; height: auto; display: block; }
-.mm-node { cursor: pointer; transition: transform .2s; }
-.mm-node:hover { filter: brightness(1.04); }
-.mm-node rect, .mm-node circle { transition: all .2s; }
-.mm-node:hover rect, .mm-node:hover circle { stroke-width: 2.5; }
-.mm-link { stroke: var(--cp-border-strong); stroke-width: 2; fill: none; opacity: .65; }
-.mm-label { font-family: "Segoe UI", sans-serif; pointer-events: none; }
-.mm-node.is-active rect, .mm-node.is-active circle { stroke: var(--cp-accent); stroke-width: 3; }
+.mindmap-hint { font-size: .82rem; color: var(--cp-text-soft); text-align: center; padding: 14px 10px 6px; }
+
+/* ----- CSS concept tree (org-chart style) ----- */
+.tree { min-width: 760px; }
+.tree, .tree ul { display: flex; justify-content: center; padding: 0; margin: 0; list-style: none; }
+.tree ul { padding-top: 22px; position: relative; }
+.tree li { position: relative; padding: 22px 10px 0; text-align: center; }
+/* down connector from a node to the row below */
+.tree li::before, .tree li::after {
+  content: ""; position: absolute; top: 0; right: 50%;
+  width: 50%; height: 22px; border-top: 2px solid var(--cp-border-strong);
+}
+.tree li::after { right: auto; left: 50%; border-left: 2px solid var(--cp-border-strong); }
+.tree li:only-child::before, .tree li:only-child::after { display: none; }
+.tree li:only-child { padding-top: 0; }
+.tree li:first-child::before, .tree li:last-child::after { border: 0; }
+.tree li:last-child::before { border-right: 2px solid var(--cp-border-strong); border-radius: 0 6px 0 0; }
+.tree li:first-child::after { border-radius: 6px 0 0 0; }
+.tree ul ul::before {
+  content: ""; position: absolute; top: 0; left: 50%;
+  border-left: 2px solid var(--cp-border-strong); width: 0; height: 22px;
+}
+.tree-node {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 4px;
+  border: 1.5px solid var(--cp-border); background: var(--cp-surface);
+  border-radius: 14px; padding: 12px 16px; cursor: pointer; transition: all .18s;
+  min-width: 118px; max-width: 170px; box-shadow: 0 0 2px rgba(0,0,0,0.10);
+}
+.tree-node:hover { border-color: var(--cp-accent); transform: translateY(-2px); }
+.tree-node.is-active { border-color: var(--cp-accent); box-shadow: 0 0 0 2px var(--cp-accent-soft); }
+.tree-node .tn-ic { font-size: 22px; line-height: 1; }
+.tree-node .tn-label { font-size: .86rem; font-weight: 700; }
+.tree-node .tn-sub { font-size: .72rem; color: var(--cp-text-soft); }
+.tree-node.root { background: linear-gradient(135deg, var(--cp-accent), var(--cp-accent2)); border-color: transparent; padding: 16px 22px; }
+.tree-node.root .tn-label { color: var(--cp-accent-fg); font-size: 1rem; }
+.tree-node.root .tn-sub { color: var(--cp-accent-fg); opacity: .85; }
+.tree-node.comp { border-color: var(--cp-accent); }
+.tree-node.aux { border-style: dashed; }
+.tree-node .tn-toggle {
+  margin-top: 4px; font-size: .68rem; font-weight: 700; color: var(--cp-accent);
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.tree-branch.collapsed > ul { display: none; }
+.tree-branch.collapsed > ul::before { display: none; }
 
 /* detail drawer */
 .drawer-backdrop {
@@ -440,17 +475,13 @@ footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevate
 
 <!-- ============ MIND MAP ============ -->
 <section id="mindmap">
-  <div class="section-eyebrow">Interactive mind map</div>
+  <div class="section-eyebrow">Interactive concept map</div>
   <h2 class="section-title">The shape of agent identity</h2>
-  <p class="section-sub">Three components work together to give an agent its identity. Click any node to expand the concept — branches reveal the sub-concepts behind the agent user.</p>
+  <p class="section-sub">Identity branches into three components, with permissions and auth flows alongside. Click any node to open its detail panel — and expand <strong>Agent user</strong> to reveal its four facets.</p>
 
   <div class="mindmap-wrap" style="margin-top:32px">
-    <svg class="mindmap" viewBox="0 0 1000 560" id="mindSvg" role="img" aria-label="Agent identity mind map">
-      <!-- links drawn first -->
-      <g id="mmLinks"></g>
-      <g id="mmNodes"></g>
-    </svg>
-    <div class="mindmap-hint">Tip: click a node to open its detail panel · the rose nodes are the three identity components</div>
+    <ul class="tree" id="conceptTree"></ul>
+    <div class="mindmap-hint">Tip: click a node to open its detail panel · click the chevron on <strong>Agent user</strong> to expand or collapse its facets</div>
   </div>
 </section>
 
@@ -946,129 +977,72 @@ const NODES = {
 };
 
 /* =================================================================
-   MIND MAP — build SVG nodes & links
+   CONCEPT TREE — clean CSS org-chart, reuses NODES + openDrawer
    ================================================================= */
-const SVGNS = "http://www.w3.org/2000/svg";
-const cx = 500, cy = 280;
-
-const layout = {
-  core:      { x: cx,  y: cy,  r: 64, type: "core",  label: ["Agent", "identity"] },
-  blueprint: { x: 200, y: 110, w: 168, h: 56, type: "comp", label: "Agent blueprint" },
-  instance:  { x: 200, y: 280, w: 168, h: 56, type: "comp", label: "Agent instance" },
-  user:      { x: 200, y: 450, w: 168, h: 56, type: "comp", label: "Agent user" },
-  characteristics: { x: 760, y: 110, w: 196, h: 44, type: "leaf", label: "Identity characteristics" },
-  organization:    { x: 770, y: 200, w: 196, h: 44, type: "leaf", label: "Org integration" },
-  relationship:    { x: 770, y: 290, w: 196, h: 44, type: "leaf", label: "Relationship model" },
-  lifecycle:       { x: 760, y: 380, w: 196, h: 44, type: "leaf", label: "Lifecycle" },
-  permissions:     { x: 470, y: 500, w: 168, h: 48, type: "comp2", label: "Permissions" },
-  auth:            { x: 640, y: 470, w: 168, h: 48, type: "comp2", label: "Auth flows" }
+const TREE = {
+  id: "core", ic: "🪪", label: "Agent identity", sub: "the foundation", cls: "root",
+  children: [
+    { id: "blueprint", ic: "📋", label: "Agent blueprint", sub: "Component 01", cls: "comp" },
+    { id: "instance", ic: "🚀", label: "Agent instance", sub: "Component 02", cls: "comp" },
+    {
+      id: "user", ic: "🧑‍💼", label: "Agent user", sub: "Component 03", cls: "comp",
+      collapsible: true,
+      children: [
+        { id: "characteristics", ic: "🏷️", label: "Characteristics", sub: "facet 1" },
+        { id: "organization", ic: "🏢", label: "Org integration", sub: "facet 2" },
+        { id: "relationship", ic: "🔗", label: "Relationship", sub: "facet 3" },
+        { id: "lifecycle", ic: "♻️", label: "Lifecycle", sub: "facet 4" }
+      ]
+    },
+    { id: "permissions", ic: "🔐", label: "Permissions", sub: "access control", cls: "aux" },
+    { id: "auth", ic: "🤝", label: "Auth flows", sub: "Entra Agent ID", cls: "aux" }
+  ]
 };
 
-const links = [
-  ["core","blueprint"], ["core","instance"], ["core","user"],
-  ["core","permissions"], ["core","auth"],
-  ["user","characteristics"], ["user","organization"], ["user","relationship"], ["user","lifecycle"]
-];
-
-function nodeAnchor(id) {
-  const n = layout[id];
-  if (n.type === "core") return { x: n.x, y: n.y };
-  return { x: n.x, y: n.y };
+function makeNodeEl(node) {
+  const el = document.createElement("div");
+  el.className = "tree-node " + (node.cls || "");
+  el.setAttribute("data-node", node.id);
+  el.setAttribute("role", "button");
+  el.setAttribute("tabindex", "0");
+  el.innerHTML = `<span class="tn-ic">${node.ic}</span>` +
+                 `<span class="tn-label">${node.label}</span>` +
+                 (node.sub ? `<span class="tn-sub">${node.sub}</span>` : "");
+  if (node.collapsible) {
+    const tog = document.createElement("span");
+    tog.className = "tn-toggle";
+    tog.innerHTML = "▾ facets";
+    el.appendChild(tog);
+  }
+  el.addEventListener("click", () => { if (NODES[node.id]) openDrawer(node.id); });
+  el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (NODES[node.id]) openDrawer(node.id); } });
+  return el;
 }
 
-function edgePoint(id, towardX, towardY) {
-  const n = layout[id];
-  if (n.type === "core") {
-    const dx = towardX - n.x, dy = towardY - n.y;
-    const len = Math.hypot(dx, dy) || 1;
-    return { x: n.x + (dx/len)*n.r, y: n.y + (dy/len)*n.r };
+function buildTree(node) {
+  const li = document.createElement("li");
+  if (node.collapsible) li.classList.add("tree-branch", "collapsed");
+  const nodeEl = makeNodeEl(node);
+  li.appendChild(nodeEl);
+
+  if (node.children && node.children.length) {
+    const ul = document.createElement("ul");
+    node.children.forEach(c => ul.appendChild(buildTree(c)));
+    li.appendChild(ul);
   }
-  // rect: clamp to nearest side roughly toward target
-  const halfW = n.w/2, halfH = n.h/2;
-  const dx = towardX - n.x, dy = towardY - n.y;
-  let ex = n.x, ey = n.y;
-  if (Math.abs(dx) > Math.abs(dy)) {
-    ex = n.x + Math.sign(dx)*halfW;
-    ey = n.y + dy * (halfW/Math.max(Math.abs(dx),1));
-  } else {
-    ey = n.y + Math.sign(dy)*halfH;
-    ex = n.x + dx * (halfH/Math.max(Math.abs(dy),1));
-  }
-  return { x: ex, y: ey };
-}
 
-const linkG = document.getElementById("mmLinks");
-const nodeG = document.getElementById("mmNodes");
-
-links.forEach(([a,b]) => {
-  const A = nodeAnchor(a), B = nodeAnchor(b);
-  const pa = edgePoint(a, B.x, B.y);
-  const pb = edgePoint(b, A.x, A.y);
-  const mx = (pa.x + pb.x)/2;
-  const path = document.createElementNS(SVGNS, "path");
-  path.setAttribute("class", "mm-link");
-  path.setAttribute("d", `M ${pa.x} ${pa.y} C ${mx} ${pa.y}, ${mx} ${pb.y}, ${pb.x} ${pb.y}`);
-  linkG.appendChild(path);
-});
-
-const accent = getComputedStyle(document.documentElement).getPropertyValue("--cp-accent").trim();
-
-function color(varName){ return getComputedStyle(document.documentElement).getPropertyValue(varName).trim(); }
-
-function buildNode(id) {
-  const n = layout[id];
-  const g = document.createElementNS(SVGNS, "g");
-  g.setAttribute("class", "mm-node");
-  g.setAttribute("data-node", id);
-  g.setAttribute("tabindex", "0");
-  g.setAttribute("role", "button");
-
-  if (n.type === "core") {
-    const c = document.createElementNS(SVGNS, "circle");
-    c.setAttribute("cx", n.x); c.setAttribute("cy", n.y); c.setAttribute("r", n.r);
-    c.setAttribute("fill", "var(--cp-accent)");
-    c.setAttribute("stroke", "var(--cp-accent-hover)");
-    c.setAttribute("stroke-width", "2");
-    g.appendChild(c);
-    n.label.forEach((line, i) => {
-      const t = document.createElementNS(SVGNS, "text");
-      t.setAttribute("x", n.x); t.setAttribute("y", n.y - 6 + i*20);
-      t.setAttribute("text-anchor", "middle");
-      t.setAttribute("class", "mm-label");
-      t.setAttribute("fill", "var(--cp-accent-fg)");
-      t.setAttribute("font-weight", "800");
-      t.setAttribute("font-size", "17");
-      t.textContent = line;
-      g.appendChild(t);
+  if (node.collapsible) {
+    const toggle = nodeEl.querySelector(".tn-toggle");
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const collapsed = li.classList.toggle("collapsed");
+      toggle.innerHTML = collapsed ? "▾ facets" : "▴ hide";
     });
-  } else {
-    const fill = n.type === "comp" ? "var(--cp-surface)" :
-                 n.type === "comp2" ? "var(--cp-bg-elevated)" : "var(--cp-surface-soft)";
-    const stroke = (n.type === "comp" || n.type === "comp2") ? "var(--cp-accent)" : "var(--cp-border-strong)";
-    const rect = document.createElementNS(SVGNS, "rect");
-    rect.setAttribute("x", n.x - n.w/2); rect.setAttribute("y", n.y - n.h/2);
-    rect.setAttribute("width", n.w); rect.setAttribute("height", n.h);
-    rect.setAttribute("rx", "12");
-    rect.setAttribute("fill", fill);
-    rect.setAttribute("stroke", stroke);
-    rect.setAttribute("stroke-width", n.type === "leaf" ? "1.5" : "2");
-    g.appendChild(rect);
-    const t = document.createElementNS(SVGNS, "text");
-    t.setAttribute("x", n.x); t.setAttribute("y", n.y + 5);
-    t.setAttribute("text-anchor", "middle");
-    t.setAttribute("class", "mm-label");
-    t.setAttribute("fill", "var(--cp-text)");
-    t.setAttribute("font-weight", n.type === "leaf" ? "600" : "700");
-    t.setAttribute("font-size", n.type === "leaf" ? "13" : "14.5");
-    t.textContent = n.label;
-    g.appendChild(t);
   }
-
-  g.addEventListener("click", () => openDrawer(id));
-  g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDrawer(id); } });
-  nodeG.appendChild(g);
+  return li;
 }
-Object.keys(layout).forEach(buildNode);
+
+document.getElementById("conceptTree").appendChild(buildTree(TREE));
 
 /* =================================================================
    DRAWER
@@ -1101,7 +1075,7 @@ function openDrawer(id) {
   document.getElementById("drawerBody").innerHTML = html;
 
   // highlight active mind-map node
-  document.querySelectorAll(".mm-node").forEach(n => n.classList.toggle("is-active", n.getAttribute("data-node") === id));
+  document.querySelectorAll(".tree-node").forEach(n => n.classList.toggle("is-active", n.getAttribute("data-node") === id));
 
   drawer.classList.add("open");
   backdrop.classList.add("open");
@@ -1111,7 +1085,7 @@ function closeDrawer() {
   drawer.classList.remove("open");
   backdrop.classList.remove("open");
   drawer.setAttribute("aria-hidden", "true");
-  document.querySelectorAll(".mm-node").forEach(n => n.classList.remove("is-active"));
+  document.querySelectorAll(".tree-node").forEach(n => n.classList.remove("is-active"));
 }
 document.getElementById("drawerClose").addEventListener("click", closeDrawer);
 backdrop.addEventListener("click", closeDrawer);
