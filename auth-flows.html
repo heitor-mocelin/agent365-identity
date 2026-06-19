@@ -204,6 +204,33 @@ table.cmp .yes { color: var(--cp-success); font-weight: 700; }
 table.cmp .no { color: var(--cp-danger); font-weight: 700; }
 .cmp-flowname { display: inline-flex; align-items: center; gap: 7px; }
 
+.seq-tabs { display:flex; gap:8px; flex-wrap:wrap; margin:28px 0 10px; }
+.seq-tab { cursor:pointer; font-family:inherit; font-size:.86rem; font-weight:600; padding:10px 16px; border-radius:10px; border:1.5px solid var(--cp-border); background:var(--cp-surface); color:var(--cp-text-muted); display:flex; align-items:center; gap:8px; transition:all .15s; }
+.seq-tab:hover{ border-color:var(--cp-accent); color:var(--cp-accent); }
+.seq-tab.active{ border-color:var(--cp-accent); background:var(--cp-accent-soft); color:var(--cp-accent); }
+.seq-stage{ background:var(--cp-bg-elevated); border:1px solid var(--cp-border); border-radius:20px; padding:24px; margin-top:18px; box-shadow:var(--cp-shadow); }
+.seq-svg-wrap{ overflow-x:auto; background:var(--cp-surface); border:1px solid var(--cp-border); border-radius:14px; padding:10px; }
+svg.seq{ width:100%; height:auto; display:block; min-width:660px; }
+.seq-life{ stroke:var(--cp-border); stroke-width:1.5; stroke-dasharray:4 5; }
+.seq-pbox{ fill:var(--cp-surface); stroke:var(--cp-border-strong); stroke-width:1.5; }
+.seq-plabel{ font-family:"Segoe UI",sans-serif; pointer-events:none; }
+.seq-msg{ cursor:pointer; }
+.seq-msg .sm-line{ stroke:var(--cp-text-soft); stroke-width:2; transition:all .2s; }
+.seq-msg .sm-head{ fill:var(--cp-text-soft); transition:all .2s; }
+.seq-msg .sm-label{ font-family:"Segoe UI",sans-serif; pointer-events:none; fill:var(--cp-text-muted); font-size:11.5px; }
+.seq-msg .sm-num{ font-family:"Segoe UI",sans-serif; pointer-events:none; }
+.seq-msg.future{ opacity:.2; }
+.seq-msg.active .sm-line{ stroke:var(--cp-accent); stroke-width:3.5; }
+.seq-msg.active .sm-head{ fill:var(--cp-accent); }
+.seq-msg.active .sm-label{ fill:var(--cp-text); font-weight:700; }
+.seq-detail{ margin-top:16px; background:var(--cp-surface); border:1px solid var(--cp-border); border-left:3px solid var(--cp-accent); border-radius:0 12px 12px 0; padding:16px 18px; min-height:74px; }
+.seq-detail .sd-step{ font-size:.74rem; text-transform:uppercase; letter-spacing:.1em; color:var(--cp-accent); font-weight:700; margin-bottom:6px; }
+.seq-detail h4{ font-size:1rem; margin-bottom:6px; }
+.seq-detail p{ font-size:.88rem; color:var(--cp-text-muted); }
+.seq-detail .sd-val{ margin-top:8px; font-size:.82rem; color:var(--cp-success); }
+.seq-detail .sd-empty{ color:var(--cp-text-soft); font-style:italic; font-size:.88rem; }
+.seq-controls{ display:flex; gap:10px; margin-top:16px; align-items:center; flex-wrap:wrap; }
+
 footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevated); margin-top: 40px; }
 .footer-inner { max-width: 1200px; margin: 0 auto; padding: 32px 20px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; align-items: center; }
 .footer-inner p { font-size: .84rem; color: var(--cp-text-muted); }
@@ -222,6 +249,7 @@ footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevate
       <a href="#concepts">Concepts</a>
       <a href="#explorer">Flow explorer</a>
       <a href="#compare">Compare</a>
+      <a href="#sequence">Sequence view</a>
       <a href="index.html" class="back">← Identity home</a>
     </nav>
     <button class="theme-toggle" id="themeToggle" title="Toggle theme">◑</button>
@@ -344,6 +372,44 @@ footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevate
         <tr><td>Typical use</td><td>Scheduled tasks, monitoring, agent-owned resources</td><td>Reading a user's mail/calendar/files on their behalf</td><td>Agent with its own mailbox acting as itself</td></tr>
       </tbody>
     </table>
+  </div>
+</section>
+
+<!-- SEQUENCE DIAGRAM VIEW -->
+<section id="sequence">
+  <div class="section-eyebrow">Alternative view · diagram-style walkthrough</div>
+  <h2 class="section-title">Interactive sequence diagrams</h2>
+  <p class="section-sub">The same three flows, drawn the way the protocol docs picture them — participants with lifelines and labeled message arrows. These are freshly drawn, interactive recreations: pick a flow, then <strong>click any arrow</strong> (or step through) to walk the token exchange message by message.</p>
+
+  <div class="seq-tabs" id="seqTabs">
+    <button class="seq-tab active" data-flow="autonomous">🤖 Autonomous app</button>
+    <button class="seq-tab" data-flow="obo">🤝 On-Behalf-Of</button>
+    <button class="seq-tab" data-flow="agentuser">🧑‍💼 Agent's user account</button>
+  </div>
+
+  <div class="seq-stage">
+    <div class="seq-svg-wrap">
+      <svg class="seq" id="seqSvg" role="img" aria-label="Agent flow sequence diagram"></svg>
+    </div>
+
+    <div class="seq-detail" id="seqDetail">
+      <p class="sd-empty">Click an arrow above, or press “Next message” to begin…</p>
+    </div>
+
+    <div class="seq-controls">
+      <button class="btn btn-primary" id="seqNext">Next message →</button>
+      <button class="btn btn-ghost" id="seqPlay">▶ Auto-play</button>
+      <button class="btn btn-ghost" id="seqReset">↺ Reset</button>
+      <span class="step-indicator" id="seqIndicator"></span>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><span class="swatch" style="background:var(--cp-link)"></span> <code>T1</code></div>
+      <div class="legend-item"><span class="swatch" style="background:var(--cp-warning)"></span> <code>T2</code></div>
+      <div class="legend-item"><span class="swatch" style="background:var(--cp-success)"></span> <code>Tc</code></div>
+      <div class="legend-item"><span class="swatch" style="background:#8b5cf6"></span> <code>TR</code></div>
+      <div class="legend-item"><span class="swatch" style="background:var(--cp-text-soft)"></span> call / response</div>
+    </div>
   </div>
 </section>
 
@@ -721,6 +787,255 @@ document.getElementById("themeToggle").addEventListener("click", () => {
 });
 
 selectFlow("autonomous");
+</script>
+<script>
+/* ============================================================
+   SEQUENCE DIAGRAM VIEW — original interactive SVG recreations
+   ============================================================ */
+const SVGNS = "http://www.w3.org/2000/svg";
+
+function tokColor(t) {
+  return t === "T1" ? "var(--cp-link)"
+       : t === "T2" ? "var(--cp-warning)"
+       : t === "Tc" ? "var(--cp-success)"
+       : t === "TR" ? "#8b5cf6"
+       : "var(--cp-text-muted)";
+}
+
+const SEQ = {
+  autonomous: {
+    parts: [
+      { ic:"📋", name:"Agent blueprint" },
+      { ic:"🤖", name:"Agent identity" },
+      { ic:"🛡️", name:"Microsoft Entra ID" },
+      { ic:"☁️", name:"Resource API" }
+    ],
+    msgs: [
+      { f:0, t:2, token:null, label:"POST /token · client_credentials (fmi_path, TUAMI)", title:"Blueprint requests exchange token", desc:"The blueprint presents its managed-identity credential (TUAMI) and names the child agent via fmi_path." },
+      { f:2, t:0, token:"T1", ret:true, label:"returns T1 (FIC exchange token)", title:"Entra returns T1", desc:"Entra issues the token-exchange (FIC) token T1 back to the blueprint." },
+      { f:1, t:2, token:"T1", label:"POST /token · client_assertion={T1}", title:"Agent requests resource token", desc:"Now acting as the agent identity, it presents T1 and asks for the resource's /.default scope." },
+      { f:2, t:1, token:"TR", ret:true, label:"returns TR (app-only)", title:"Entra issues TR", desc:"After validating T1, Entra returns the app-only resource access token.", val:"T1 (aud) == Agent parent app == blueprint" },
+      { f:1, t:3, token:"TR", label:"call API with TR", title:"Agent calls the resource", desc:"The agent calls the protected API as itself, presenting TR." },
+      { f:3, t:1, token:null, ret:true, label:"200 OK · resource data", title:"Resource responds", desc:"The resource returns data to the agent." }
+    ]
+  },
+  obo: {
+    parts: [
+      { ic:"🧑", name:"User" },
+      { ic:"💻", name:"Client app" },
+      { ic:"📋", name:"Agent blueprint" },
+      { ic:"🤖", name:"Agent identity" },
+      { ic:"🛡️", name:"Entra ID" },
+      { ic:"☁️", name:"Resource API" }
+    ],
+    msgs: [
+      { f:0, t:1, token:null, label:"authenticate (sign in)", title:"User signs in", desc:"The user authenticates with the client app." },
+      { f:1, t:2, token:"Tc", label:"send user token Tc", title:"Client passes Tc to blueprint", desc:"The client forwards the signed-in user's access token (Tc) so the agent can act on the user's behalf." },
+      { f:2, t:4, token:"T1", label:"POST /token · client_credentials (fmi_path, TUAMI)", title:"Blueprint requests T1", desc:"The blueprint presents TUAMI and names the child agent via fmi_path." },
+      { f:4, t:2, token:"T1", ret:true, label:"returns T1", title:"Entra returns T1", desc:"Entra returns the FIC exchange token T1." },
+      { f:3, t:4, token:"T1", label:"POST /token · jwt-bearer · assertion={Tc} · on_behalf_of", title:"Agent performs the OBO exchange", desc:"client_id switches to the agent identity. It sends T1 (client_assertion) plus Tc (the user token) for the OBO exchange." },
+      { f:4, t:3, token:"TR", ret:true, label:"returns TR (user context)", title:"Entra issues TR", desc:"After validating both tokens, Entra issues a resource token in the user's context.", val:"T1 (aud) == blueprint  AND  Tc (aud) == blueprint" },
+      { f:3, t:5, token:"TR", label:"call API with TR", title:"Agent calls the resource", desc:"The agent calls the API as the user, presenting TR." },
+      { f:5, t:3, token:null, ret:true, label:"200 OK · user's data", title:"Resource responds", desc:"The resource returns the user's data." }
+    ]
+  },
+  agentuser: {
+    parts: [
+      { ic:"📋", name:"Agent blueprint" },
+      { ic:"🤖", name:"Agent identity" },
+      { ic:"🛡️", name:"Microsoft Entra ID" },
+      { ic:"☁️", name:"Resource API" }
+    ],
+    msgs: [
+      { f:0, t:2, token:"T1", label:"POST /token · client_credentials (fmi_path, TUAMI)", title:"Blueprint requests T1", desc:"The blueprint presents TUAMI and names the child agent via fmi_path. T1 is used for agent-identity impersonation." },
+      { f:2, t:0, token:"T1", ret:true, label:"returns T1", title:"Entra returns T1", desc:"Entra returns the FIC exchange token T1." },
+      { f:1, t:2, token:"T1", label:"POST /token · client_assertion={T1}", title:"Agent requests T2", desc:"The agent presents T1 to request T2, used to impersonate its own user account.", val:"T1 (aud) == Agent parent app == blueprint" },
+      { f:2, t:1, token:"T2", ret:true, label:"returns T2", title:"Entra returns T2", desc:"Entra issues T2 to the agent identity." },
+      { f:1, t:2, token:"T2", label:"POST /token · user_fic · {T1}+{T2} · username", title:"Agent performs the user_fic OBO exchange", desc:"The agent sends both T1 and T2 plus the agent user's UPN, with grant_type=user_fic.", val:"T2 (aud) == Agent identity" },
+      { f:2, t:1, token:"TR", ret:true, label:"returns TR (agent-user context)", title:"Entra issues TR", desc:"With the full chain validated (blueprint → agent → agent-user), Entra issues the resource token." },
+      { f:1, t:3, token:"TR", label:"call API with TR", title:"Agent calls the resource", desc:"The agent acts as its own user account against the API, presenting TR." },
+      { f:3, t:1, token:null, ret:true, label:"200 OK · resource data", title:"Resource responds", desc:"The resource returns data." }
+    ]
+  }
+};
+
+let seqFlow = "autonomous";
+let seqStep = -1;
+let seqTimer = null;
+
+const seqSvg = document.getElementById("seqSvg");
+const seqDetail = document.getElementById("seqDetail");
+const seqIndicator = document.getElementById("seqIndicator");
+
+function buildSeq() {
+  const d = SEQ[seqFlow];
+  const n = d.parts.length;
+  const W = 220 + (n - 1) * 180;
+  const headH = 64;
+  const rowH = 58;
+  const H = headH + 24 + d.msgs.length * rowH + 24;
+  const xOf = i => 110 + i * ((W - 220) / (n - 1));
+
+  seqSvg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  while (seqSvg.firstChild) seqSvg.removeChild(seqSvg.firstChild);
+
+  // lifelines + participant boxes
+  d.parts.forEach((p, i) => {
+    const x = xOf(i);
+    const life = document.createElementNS(SVGNS, "line");
+    life.setAttribute("class", "seq-life");
+    life.setAttribute("x1", x); life.setAttribute("y1", 56);
+    life.setAttribute("x2", x); life.setAttribute("y2", H - 16);
+    seqSvg.appendChild(life);
+
+    const box = document.createElementNS(SVGNS, "rect");
+    box.setAttribute("class", "seq-pbox");
+    box.setAttribute("x", x - 76); box.setAttribute("y", 8);
+    box.setAttribute("width", 152); box.setAttribute("height", 46);
+    box.setAttribute("rx", 11);
+    seqSvg.appendChild(box);
+
+    const emo = document.createElementNS(SVGNS, "text");
+    emo.setAttribute("class", "seq-plabel");
+    emo.setAttribute("x", x); emo.setAttribute("y", 29);
+    emo.setAttribute("text-anchor", "middle");
+    emo.setAttribute("font-size", "17");
+    emo.textContent = p.ic;
+    seqSvg.appendChild(emo);
+
+    const nm = document.createElementNS(SVGNS, "text");
+    nm.setAttribute("class", "seq-plabel");
+    nm.setAttribute("x", x); nm.setAttribute("y", 46);
+    nm.setAttribute("text-anchor", "middle");
+    nm.setAttribute("font-size", "10.5");
+    nm.setAttribute("font-weight", "600");
+    nm.setAttribute("fill", "var(--cp-text)");
+    nm.textContent = p.name;
+    seqSvg.appendChild(nm);
+  });
+
+  // messages
+  d.msgs.forEach((m, i) => {
+    const y = headH + 28 + i * rowH;
+    const xF = xOf(m.f), xT = xOf(m.t);
+    const right = xT > xF;
+    const headX = xT + (right ? -8 : 8);
+
+    const g = document.createElementNS(SVGNS, "g");
+    g.setAttribute("class", "seq-msg");
+    g.setAttribute("data-i", i);
+    g.setAttribute("tabindex", "0");
+    g.setAttribute("role", "button");
+
+    const line = document.createElementNS(SVGNS, "line");
+    line.setAttribute("class", "sm-line");
+    line.setAttribute("x1", xF); line.setAttribute("y1", y);
+    line.setAttribute("x2", headX); line.setAttribute("y2", y);
+    if (m.ret) line.setAttribute("stroke-dasharray", "6 5");
+    g.appendChild(line);
+
+    const head = document.createElementNS(SVGNS, "polygon");
+    head.setAttribute("class", "sm-head");
+    const hp = right
+      ? `${xT},${y} ${xT-9},${y-5} ${xT-9},${y+5}`
+      : `${xT},${y} ${xT+9},${y-5} ${xT+9},${y+5}`;
+    head.setAttribute("points", hp);
+    g.appendChild(head);
+
+    // number badge at source
+    const numC = document.createElementNS(SVGNS, "circle");
+    numC.setAttribute("cx", xF + (right ? 7 : -7)); numC.setAttribute("cy", y - 13);
+    numC.setAttribute("r", 9);
+    numC.setAttribute("fill", "var(--cp-accent)");
+    g.appendChild(numC);
+    const numT = document.createElementNS(SVGNS, "text");
+    numT.setAttribute("class", "sm-num");
+    numT.setAttribute("x", xF + (right ? 7 : -7)); numT.setAttribute("y", y - 9.5);
+    numT.setAttribute("text-anchor", "middle");
+    numT.setAttribute("font-size", "10");
+    numT.setAttribute("font-weight", "800");
+    numT.setAttribute("fill", "var(--cp-accent-fg)");
+    numT.textContent = i + 1;
+    g.appendChild(numT);
+
+    const label = document.createElementNS(SVGNS, "text");
+    label.setAttribute("class", "sm-label");
+    label.setAttribute("x", (xF + xT) / 2); label.setAttribute("y", y - 9);
+    label.setAttribute("text-anchor", "middle");
+    label.textContent = m.label;
+    g.appendChild(label);
+
+    if (m.token) {
+      const tk = document.createElementNS(SVGNS, "text");
+      tk.setAttribute("x", (xF + xT) / 2); tk.setAttribute("y", y + 16);
+      tk.setAttribute("text-anchor", "middle");
+      tk.setAttribute("font-size", "11");
+      tk.setAttribute("font-weight", "800");
+      tk.setAttribute("font-family", "Consolas, monospace");
+      tk.setAttribute("fill", tokColor(m.token));
+      tk.textContent = "🎫 " + m.token;
+      tk.style.pointerEvents = "none";
+      g.appendChild(tk);
+    }
+
+    g.addEventListener("click", () => { seqStep = i; stopSeqPlay(); updateSeq(); });
+    g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); seqStep = i; stopSeqPlay(); updateSeq(); } });
+    seqSvg.appendChild(g);
+  });
+}
+
+function updateSeq() {
+  const d = SEQ[seqFlow];
+  seqSvg.querySelectorAll(".seq-msg").forEach(g => {
+    const i = parseInt(g.dataset.i);
+    g.classList.toggle("future", seqStep >= 0 && i > seqStep);
+    g.classList.toggle("active", i === seqStep);
+  });
+  if (seqStep < 0) {
+    seqDetail.innerHTML = `<p class="sd-empty">Click an arrow above, or press “Next message” to begin…</p>`;
+  } else {
+    const m = d.msgs[seqStep];
+    seqDetail.innerHTML = `
+      <div class="sd-step">Message ${seqStep + 1} of ${d.msgs.length}${m.token ? " · token " + m.token : ""}</div>
+      <h4>${m.title}</h4>
+      <p>${m.desc}</p>
+      ${m.val ? `<div class="sd-val">✓ Entra validates: ${m.val}</div>` : ""}`;
+  }
+  seqIndicator.textContent = seqStep < 0 ? `0 / ${d.msgs.length}` : `${seqStep + 1} / ${d.msgs.length}`;
+  document.getElementById("seqNext").textContent = (seqStep >= d.msgs.length - 1) ? "↺ Restart" : "Next message →";
+}
+
+function seqNext() {
+  const d = SEQ[seqFlow];
+  if (seqStep >= d.msgs.length - 1) { seqStep = -1; } else { seqStep++; }
+  updateSeq();
+}
+function startSeqPlay() {
+  stopSeqPlay();
+  if (seqStep >= SEQ[seqFlow].msgs.length - 1) seqStep = -1;
+  document.getElementById("seqPlay").textContent = "⏸ Pause";
+  seqTimer = setInterval(() => {
+    const d = SEQ[seqFlow];
+    if (seqStep >= d.msgs.length - 1) { stopSeqPlay(); return; }
+    seqStep++; updateSeq();
+  }, 1500);
+}
+function stopSeqPlay() {
+  if (seqTimer) { clearInterval(seqTimer); seqTimer = null; }
+  document.getElementById("seqPlay").textContent = "▶ Auto-play";
+}
+function selectSeqFlow(key) {
+  seqFlow = key; seqStep = -1; stopSeqPlay();
+  document.querySelectorAll("#seqTabs .seq-tab").forEach(t => t.classList.toggle("active", t.dataset.flow === key));
+  buildSeq(); updateSeq();
+}
+
+document.querySelectorAll("#seqTabs .seq-tab").forEach(t => t.addEventListener("click", () => selectSeqFlow(t.dataset.flow)));
+document.getElementById("seqNext").addEventListener("click", () => { stopSeqPlay(); seqNext(); });
+document.getElementById("seqPlay").addEventListener("click", () => { if (seqTimer) stopSeqPlay(); else startSeqPlay(); });
+document.getElementById("seqReset").addEventListener("click", () => { stopSeqPlay(); seqStep = -1; updateSeq(); });
+
+selectSeqFlow("autonomous");
 </script>
 </body>
 </html>
