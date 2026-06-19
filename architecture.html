@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Agent identity — architecture & developer guide</title>
+<script>
+  (() => {
+    const param = new URLSearchParams(window.location.search).get("scoutTheme");
+    const theme = param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef; --cp-bg-elevated: #fcfbf8; --cp-surface: #ffffff; --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede; --cp-border-strong: #919191; --cp-text: #242424; --cp-text-muted: #5c5c5c; --cp-text-soft: #6f6f6f;
+  --cp-accent: #1565c0; --cp-accent-hover: #0d4f9e; --cp-accent-soft: rgba(21, 101, 192, 0.09); --cp-accent-fg: #ffffff;
+  --cp-accent2: #2e9e6b; --cp-accent2-soft: rgba(46, 158, 107, 0.10);
+  --cp-success: #16a34a; --cp-danger: #dc2626; --cp-warning: #f59e0b; --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12); --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-highlight: rgba(21, 101, 192, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a; --cp-bg-elevated: #343231; --cp-surface: #292929; --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747; --cp-border-strong: #5f5f5f; --cp-text: #dedede; --cp-text-muted: #919191; --cp-text-soft: #b0b0b0;
+  --cp-accent: #5fb0f0; --cp-accent-hover: #82c2f4; --cp-accent-soft: rgba(95, 176, 240, 0.16); --cp-accent-fg: #0c1c2b;
+  --cp-accent2: #57d99a; --cp-accent2-soft: rgba(87, 217, 154, 0.16);
+  --cp-success: #4ade80; --cp-danger: #f87171; --cp-warning: #fbbf24; --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32); --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-highlight: rgba(95, 176, 240, 0.14);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif; background: var(--cp-bg); color: var(--cp-text); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+code, .mono, pre { font-family: Consolas, "Courier New", Courier, monospace; }
+
+.topbar { position: sticky; top: 0; z-index: 50; background: var(--cp-panel-strong); backdrop-filter: blur(12px); border-bottom: 1px solid var(--cp-border); }
+.topbar-inner { max-width: 1200px; margin: 0 auto; padding: 0 20px; min-height: 60px; display: flex; align-items: center; gap: 14px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: .95rem; white-space: nowrap; }
+.brand-dot { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(135deg, var(--cp-accent), var(--cp-accent2)); display: grid; place-items: center; color: var(--cp-accent-fg); font-size: 14px; font-weight: 800; }
+.nav-links { display: flex; gap: 2px; margin-left: auto; align-items: center; overflow-x: auto; }
+.nav-links a { color: var(--cp-text-muted); text-decoration: none; font-size: .84rem; padding: 7px 11px; border-radius: 8px; transition: all .15s; white-space: nowrap; }
+.nav-links a:hover { background: var(--cp-accent-soft); color: var(--cp-accent); }
+.nav-links a.back { border: 1px solid var(--cp-border); }
+.theme-toggle { border: 1px solid var(--cp-border); background: var(--cp-surface); color: var(--cp-text); width: 38px; height: 34px; border-radius: 8px; cursor: pointer; font-size: 15px; display: grid; place-items: center; flex-shrink: 0; }
+.theme-toggle:hover { border-color: var(--cp-accent); }
+
+section { max-width: 1200px; margin: 0 auto; padding: 56px 20px; }
+.section-eyebrow { text-transform: uppercase; letter-spacing: .14em; font-size: .72rem; font-weight: 700; color: var(--cp-accent); margin-bottom: 10px; }
+.section-title { font-size: 1.8rem; font-weight: 700; margin-bottom: 12px; letter-spacing: -.01em; }
+.section-sub { font-size: 1.02rem; color: var(--cp-text-muted); max-width: 780px; }
+.divider-fade { height: 1px; background: linear-gradient(90deg, transparent, var(--cp-border), transparent); max-width: 1200px; margin: 0 auto; }
+
+.hero { padding-top: 60px; padding-bottom: 16px; }
+.hero-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border: 1px solid var(--cp-border); border-radius: 999px; background: var(--cp-surface); font-size: .8rem; color: var(--cp-text-muted); margin-bottom: 20px; }
+.hero h1 { font-size: clamp(1.9rem, 4.5vw, 2.9rem); line-height: 1.1; letter-spacing: -.025em; font-weight: 800; max-width: 900px; margin-bottom: 16px; }
+.hero h1 .accent { background: linear-gradient(90deg, var(--cp-accent), var(--cp-accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.hero p { font-size: 1.1rem; color: var(--cp-text-muted); max-width: 760px; }
+
+.btn { border: none; cursor: pointer; font-family: inherit; font-size: .9rem; font-weight: 600; padding: 11px 20px; border-radius: 10px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: all .15s; }
+.btn-primary { background: var(--cp-accent); color: var(--cp-accent-fg); }
+.btn-primary:hover { background: var(--cp-accent-hover); transform: translateY(-1px); }
+.btn-ghost { background: var(--cp-surface); color: var(--cp-text); border: 1px solid var(--cp-border); }
+.btn-ghost:hover { border-color: var(--cp-accent); color: var(--cp-accent); }
+
+/* design rationale cards */
+.why-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 16px; margin-top: 32px; }
+.why { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 16px; padding: 22px 24px; box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14); }
+.why .bad { font-size: .8rem; color: var(--cp-danger); font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.why h4 { font-size: 1.04rem; margin-bottom: 8px; }
+.why p { font-size: .88rem; color: var(--cp-text-muted); margin-bottom: 12px; }
+.why .good { font-size: .86rem; color: var(--cp-success); font-weight: 600; display: flex; gap: 7px; align-items: flex-start; }
+
+/* sidecar diagram */
+.pod { margin-top: 32px; background: var(--cp-bg-elevated); border: 2px dashed var(--cp-border-strong); border-radius: 20px; padding: 26px; position: relative; box-shadow: var(--cp-shadow); }
+.pod-label { position: absolute; top: -12px; left: 24px; background: var(--cp-accent); color: var(--cp-accent-fg); font-size: .72rem; font-weight: 700; padding: 3px 12px; border-radius: 999px; letter-spacing: .05em; }
+.pod-row { display: flex; gap: 18px; align-items: stretch; flex-wrap: wrap; }
+.container-box { flex: 1; min-width: 240px; background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 14px; padding: 20px; }
+.container-box.agent { border-top: 3px solid var(--cp-accent2); }
+.container-box.sidecar { border-top: 3px solid var(--cp-accent); }
+.cb-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.cb-head .cb-ic { font-size: 22px; }
+.cb-head h4 { font-size: 1.05rem; }
+.cb-head .cb-tag { margin-left: auto; font-size: .68rem; font-weight: 700; padding: 3px 9px; border-radius: 6px; background: var(--cp-surface-soft); color: var(--cp-text-soft); }
+.cb-list { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.cb-list li { font-size: .84rem; color: var(--cp-text-muted); display: flex; gap: 8px; }
+.cb-list li::before { content: "▸"; color: var(--cp-accent); }
+.pod-arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--cp-accent); min-width: 70px; }
+.pod-arrow .pa-line { font-size: 22px; }
+.pod-arrow .pa-lbl { font-size: .7rem; text-align: center; color: var(--cp-text-soft); font-weight: 600; }
+.pod-ext { margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.ext-box { background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 12px; padding: 12px 18px; font-size: .84rem; display: flex; align-items: center; gap: 8px; }
+.boundary-note { margin-top: 16px; font-size: .84rem; color: var(--cp-text-muted); text-align: center; }
+.boundary-note strong { color: var(--cp-accent); }
+
+/* endpoint cards */
+.ep-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 14px; margin-top: 26px; }
+.ep { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 14px; padding: 18px 20px; }
+.ep .ep-method { font-size: .7rem; font-weight: 800; color: var(--cp-accent2); }
+.ep code.ep-path { display: block; font-size: .92rem; color: var(--cp-accent); margin: 4px 0 10px; word-break: break-all; }
+.ep p { font-size: .84rem; color: var(--cp-text-muted); }
+
+/* responsibilities table */
+.resp { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-top: 26px; border: 1px solid var(--cp-border); border-radius: 14px; overflow: hidden; }
+.resp .rh { padding: 14px 18px; font-weight: 700; font-size: .9rem; background: var(--cp-surface-soft); border-bottom: 1px solid var(--cp-border); display: flex; align-items: center; gap: 8px; }
+.resp .rh.agent2 { border-left: 1px solid var(--cp-border); }
+.resp .rc { padding: 12px 18px; font-size: .86rem; color: var(--cp-text-muted); border-bottom: 1px solid var(--cp-border); background: var(--cp-surface); }
+.resp .rc.agent2 { border-left: 1px solid var(--cp-border); }
+.resp .rc:nth-last-child(-n+2) { border-bottom: none; }
+@media (max-width: 640px) { .resp { grid-template-columns: 1fr; } .resp .rh.agent2, .resp .rc.agent2 { border-left: none; } }
+
+/* pattern explorer */
+.pat-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 30px 0 0; }
+.pat-tab { cursor: pointer; font-family: inherit; font-size: .85rem; font-weight: 600; padding: 11px 15px; border-radius: 11px; border: 1.5px solid var(--cp-border); background: var(--cp-surface); color: var(--cp-text-muted); transition: all .15s; display: flex; align-items: center; gap: 8px; }
+.pat-tab:hover { border-color: var(--cp-accent); color: var(--cp-accent); }
+.pat-tab.active { border-color: var(--cp-accent); background: var(--cp-accent-soft); color: var(--cp-accent); }
+.pat-stage { background: var(--cp-bg-elevated); border: 1px solid var(--cp-border); border-radius: 20px; padding: 28px; margin-top: 16px; box-shadow: var(--cp-shadow); }
+.pat-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.pat-head h3 { font-size: 1.3rem; }
+.pat-head .ph-map { font-size: .74rem; padding: 4px 10px; border-radius: 999px; background: var(--cp-accent2-soft); color: var(--cp-accent2); font-weight: 700; }
+.pat-desc { font-size: .96rem; color: var(--cp-text-muted); max-width: 820px; margin-bottom: 20px; }
+.struct { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+.struct-node { background: var(--cp-surface); border: 1.5px solid var(--cp-border); border-radius: 12px; padding: 12px 16px; text-align: center; min-width: 120px; }
+.struct-node.bp { border-color: var(--cp-accent); }
+.struct-node.ai { border-color: var(--cp-accent2); }
+.struct-node.au { border-color: var(--cp-warning); }
+.struct-node .sn-ic { font-size: 20px; }
+.struct-node .sn-name { font-size: .82rem; font-weight: 700; margin-top: 2px; }
+.struct-node .sn-count { font-size: .72rem; color: var(--cp-text-soft); }
+.struct-arrow { color: var(--cp-text-soft); font-size: 18px; }
+.pat-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px,1fr)); gap: 14px; }
+.pat-card { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 12px; padding: 16px 18px; }
+.pat-card h5 { font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; color: var(--cp-text-soft); margin-bottom: 7px; }
+.pat-card p { font-size: .86rem; color: var(--cp-text); }
+.pat-example { margin-top: 18px; border-left: 3px solid var(--cp-accent2); background: var(--cp-surface); padding: 12px 16px; border-radius: 0 10px 10px 0; font-size: .87rem; color: var(--cp-text-muted); }
+.pat-example strong { color: var(--cp-text); }
+
+/* avoid cards */
+.avoid-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 16px; margin-top: 30px; }
+.avoid { background: var(--cp-surface); border: 1px solid var(--cp-border); border-left: 3px solid var(--cp-danger); border-radius: 0 14px 14px 0; padding: 20px 22px; }
+.avoid h4 { font-size: 1rem; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.avoid p { font-size: .86rem; color: var(--cp-text-muted); }
+
+/* token claims explorer */
+.tok-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 30px 0 0; }
+.tok-tab { cursor: pointer; font-family: inherit; font-size: .85rem; font-weight: 600; padding: 11px 16px; border-radius: 11px; border: 1.5px solid var(--cp-border); background: var(--cp-surface); color: var(--cp-text-muted); transition: all .15s; }
+.tok-tab:hover { border-color: var(--cp-accent); color: var(--cp-accent); }
+.tok-tab.active { border-color: var(--cp-accent); background: var(--cp-accent-soft); color: var(--cp-accent); }
+.tok-stage { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; margin-top: 16px; }
+@media (max-width: 880px) { .tok-stage { grid-template-columns: 1fr; } }
+.jwt { background: var(--cp-bg-elevated); border: 1px solid var(--cp-border); border-radius: 16px; padding: 20px; box-shadow: var(--cp-shadow); overflow-x: auto; }
+.jwt pre { font-size: .84rem; line-height: 1.75; }
+.jwt .ck { color: var(--cp-accent); }
+.jwt .cv { color: var(--cp-text-muted); }
+.jwt .hl { background: var(--cp-accent2-soft); border-radius: 4px; padding: 1px 3px; }
+.jwt .hl .ck { color: var(--cp-accent2); font-weight: 700; }
+.claims-info { display: flex; flex-direction: column; gap: 12px; }
+.claim-row { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 12px; padding: 14px 16px; }
+.claim-row.key { border-color: var(--cp-accent2); box-shadow: 0 0 0 1px var(--cp-accent2-soft); }
+.claim-row code { font-size: .84rem; color: var(--cp-accent); font-weight: 700; }
+.claim-row .cr-val { font-size: .82rem; color: var(--cp-accent2); font-weight: 700; margin-left: 6px; }
+.claim-row p { font-size: .84rem; color: var(--cp-text-muted); margin-top: 5px; }
+
+/* claims glossary */
+.gloss { overflow-x: auto; margin-top: 26px; border: 1px solid var(--cp-border); border-radius: 14px; }
+table.gtab { width: 100%; border-collapse: collapse; font-size: .86rem; min-width: 640px; }
+table.gtab th, table.gtab td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--cp-border); vertical-align: top; }
+table.gtab thead th { background: var(--cp-surface-soft); font-size: .76rem; text-transform: uppercase; letter-spacing: .05em; color: var(--cp-text-soft); }
+table.gtab tbody tr:last-child td { border-bottom: none; }
+table.gtab td:first-child code { color: var(--cp-accent); font-weight: 700; }
+table.gtab .v { color: var(--cp-accent2); font-weight: 700; font-family: Consolas, monospace; }
+
+.callout { margin-top: 22px; border-left: 3px solid var(--cp-warning); background: var(--cp-surface); padding: 14px 18px; border-radius: 0 10px 10px 0; font-size: .88rem; color: var(--cp-text-muted); }
+.callout.info { border-left-color: var(--cp-link); }
+.callout code { background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 5px; padding: 0 5px; font-size: .82rem; color: var(--cp-accent); }
+
+footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevated); margin-top: 40px; }
+.footer-inner { max-width: 1200px; margin: 0 auto; padding: 32px 20px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; align-items: center; }
+.footer-inner p { font-size: .84rem; color: var(--cp-text-muted); }
+.footer-inner a { color: var(--cp-link); text-decoration: none; font-size: .84rem; }
+.footer-inner a:hover { text-decoration: underline; }
+@media (max-width: 640px) { section { padding: 40px 16px; } .nav-links a:not(.back) { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="brand-dot">A</span> Architecture <span style="color:var(--cp-accent)">&amp; dev guide</span></div>
+    <nav class="nav-links">
+      <a href="#why">Why this design</a>
+      <a href="#sidecar">Sidecar</a>
+      <a href="#patterns">Deployment patterns</a>
+      <a href="#avoid">Anti-patterns</a>
+      <a href="#claims">Token claims</a>
+      <a href="auth-flows.html">OAuth flows</a>
+      <a href="index.html" class="back">← Identity home</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle" title="Toggle theme">◑</button>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">For engineers &amp; architects · design decisions that shape your environment</div>
+  <h1>The <span class="accent">architecture</span> behind agent identity.</h1>
+  <p>Beyond the concepts: how Microsoft Entra Agent ID is meant to be deployed, why each design decision exists, and how blueprints, agent identities, the auth sidecar, and token claims map onto real systems you build and operate.</p>
+</section>
+
+<!-- WHY THIS DESIGN -->
+<section id="why" style="padding-top:8px">
+  <div class="section-eyebrow">Design rationale</div>
+  <h2 class="section-title">Why agents get their own identity</h2>
+  <p class="section-sub">The whole model exists to fix two failure modes engineers hit when bolting auth onto agents. Understanding the failure modes explains every later decision.</p>
+  <div class="why-grid">
+    <div class="why">
+      <div class="bad">✗ Anti-pattern</div>
+      <h4>Hard-coded secrets in agent code</h4>
+      <p>Every agent image carries a copy of the app's <code>client_secret</code>. One log leak, compromised image, or stray <code>.env</code> in Git exposes the whole tenant.</p>
+      <div class="good">✓ Each agent gets its own Entra identity; credential handling moves out of agent code.</div>
+    </div>
+    <div class="why">
+      <div class="bad">✗ Anti-pattern</div>
+      <h4>Delegated user tokens for everything</h4>
+      <p>The agent can only act when a human is present, and every call looks like the same service principal — you lose per-agent auditability.</p>
+      <div class="good">✓ Autonomous flows + per-agent identities give individual attribution in sign-in &amp; audit logs.</div>
+    </div>
+    <div class="why">
+      <div class="bad">⚖️ The trade-off it buys</div>
+      <h4>Identity as a governance unit</h4>
+      <p>A blueprint gives even a single agent consistent Conditional Access, monitoring, governance, and audit entries — the same infrastructure multi-agent systems need.</p>
+      <div class="good">✓ Minimal setup now; no re-architecture when you scale to many agents.</div>
+    </div>
+  </div>
+</section>
+
+<div class="divider-fade"></div>
+
+<!-- SIDECAR -->
+<section id="sidecar">
+  <div class="section-eyebrow">Reference deployment · the auth sidecar</div>
+  <h2 class="section-title">Keep credentials out of your agent code</h2>
+  <p class="section-sub">The Microsoft Entra Auth SDK ships as a <strong>sidecar container</strong> that runs next to your agent and owns every token operation — client-credentials, FIC, OBO, caching, refresh — so your code never touches a secret.</p>
+
+  <div class="pod">
+    <span class="pod-label">Pod / compose service — shared local network</span>
+    <div class="pod-row">
+      <div class="container-box agent">
+        <div class="cb-head"><span class="cb-ic">🧩</span><h4>Agent container</h4><span class="cb-tag">your code</span></div>
+        <ul class="cb-list">
+          <li>Decides <em>when</em> to call an API</li>
+          <li>Builds the HTTP request</li>
+          <li>Passes through the user token for OBO</li>
+          <li>Handles business logic</li>
+        </ul>
+      </div>
+      <div class="pod-arrow">
+        <div class="pa-line">⇄</div>
+        <div class="pa-lbl">HTTP on pod-local network</div>
+      </div>
+      <div class="container-box sidecar">
+        <div class="cb-head"><span class="cb-ic">🛡️</span><h4>Auth sidecar</h4><span class="cb-tag">Entra SDK</span></div>
+        <ul class="cb-list">
+          <li>Acquires &amp; caches the right token</li>
+          <li>Performs client-credentials, FIC &amp; OBO</li>
+          <li>Validates &amp; forwards the user assertion</li>
+          <li>Holds the blueprint credential</li>
+        </ul>
+      </div>
+    </div>
+    <div class="pod-ext">
+      <span class="pod-arrow" style="min-width:auto"><span class="pa-line">↓</span></span>
+      <div class="ext-box">🌐 <code>login.microsoftonline.com</code> — only the sidecar talks to Entra</div>
+    </div>
+    <p class="boundary-note">🔒 <strong>Explicit security boundary:</strong> the sidecar has <strong>no host port</strong>. Only services inside the same network — your agent container — can request tokens.</p>
+  </div>
+
+  <h3 style="font-size:1.05rem;margin:34px 0 4px">HTTP endpoints your agent calls</h3>
+  <div class="ep-grid">
+    <div class="ep">
+      <div class="ep-method">GET · autonomous (app-only)</div>
+      <code class="ep-path">/AuthorizationHeader/{service}?AgentIdentity={id}</code>
+      <p>Returns a ready-to-use <code>Authorization</code> header with an app-only token for the named agent identity.</p>
+    </div>
+    <div class="ep">
+      <div class="ep-method">GET · agent's user account</div>
+      <code class="ep-path">/AuthorizationHeader/{service}?AgentIdentity={id}&amp;AgentUserId={oid}</code>
+      <p>Token via the agent's own user account. Provide <code>AgentUserId</code> <em>or</em> <code>AgentUsername</code> — never both.</p>
+    </div>
+    <div class="ep">
+      <div class="ep-method">GET · interactive (OBO)</div>
+      <code class="ep-path">/Validate  →  /AuthorizationHeader/{service}</code>
+      <p>Validate the incoming user token first, then get an on-behalf-of header passing the user's bearer token.</p>
+    </div>
+    <div class="ep">
+      <div class="ep-method">GET · proxied call</div>
+      <code class="ep-path">/DownstreamApi/{service}</code>
+      <p>The sidecar acquires the token <em>and</em> makes the downstream call for you in one hop.</p>
+    </div>
+  </div>
+
+  <h3 style="font-size:1.05rem;margin:34px 0 4px">Who does what</h3>
+  <div class="resp">
+    <div class="rh">🧩 Agent (your code)</div>
+    <div class="rh agent2">🛡️ Sidecar (Entra SDK)</div>
+    <div class="rc">Decide when to call the API</div>
+    <div class="rc agent2">Acquire and cache the right token</div>
+    <div class="rc">Build the HTTP request</div>
+    <div class="rc agent2">Perform client-credentials &amp; OBO exchange</div>
+    <div class="rc">Pass through the user token for OBO</div>
+    <div class="rc agent2">Validate &amp; forward the user assertion</div>
+    <div class="rc">Handle business logic</div>
+    <div class="rc agent2">Communicate with <code>login.microsoftonline.com</code></div>
+  </div>
+
+  <div class="callout info">💡 <strong>Credential-source abstraction:</strong> use <code>ClientSecret</code> in development, then switch to <code>SignedAssertionFromManagedIdentity</code> (FIC backed by managed identity) in Azure — <strong>without changing agent code</strong>. Your code keeps calling the same <code>/AuthorizationHeader</code> endpoint. Downstream APIs still validate the token's signature, issuer, audience, and <code>xms_par_app_azp</code>.</div>
+</section>
+
+<div class="divider-fade"></div>
+
+<!-- DEPLOYMENT PATTERNS -->
+<section id="patterns">
+  <div class="section-eyebrow">How many blueprints &amp; identities?</div>
+  <h2 class="section-title">Deployment patterns explorer</h2>
+  <p class="section-sub">The number of blueprints and agent identities you create is an architecture decision driven by <strong>trust boundaries</strong> and <strong>attribution</strong>. Pick a pattern to see how it maps.</p>
+
+  <div class="pat-tabs" id="patTabs"></div>
+  <div class="pat-stage">
+    <div class="pat-head">
+      <h3 id="patTitle"></h3>
+      <span class="ph-map" id="patMap"></span>
+    </div>
+    <p class="pat-desc" id="patDesc"></p>
+    <div class="struct" id="patStruct"></div>
+    <div class="pat-meta" id="patMeta"></div>
+    <div class="pat-example" id="patExample"></div>
+  </div>
+
+  <div class="callout">🧱 <strong>Trust boundary</strong> = the shared risk surface where one compromise is assumed to affect the whole perimeter. Agents on separate runtimes, secrets, and network segments don't share a trust boundary — and <strong>crossing a trust boundary means a separate blueprint</strong>. This is a threat-modeling decision you make, not one Entra makes for you.</div>
+</section>
+
+<div class="divider-fade"></div>
+
+<!-- ANTI-PATTERNS -->
+<section id="avoid">
+  <div class="section-eyebrow">Patterns to avoid</div>
+  <h2 class="section-title">Don't create identities you don't need</h2>
+  <p class="section-sub">Directory-level identities are for accountability and access control — not for runtime scale or data partitioning. These three over-uses add objects and overhead with no security benefit.</p>
+  <div class="avoid-grid">
+    <div class="avoid">
+      <h4>🔁 Scale-out replicas</h4>
+      <p>Running N copies of the same agent code is a runtime concern. All replicas run under the <strong>same</strong> agent identity simultaneously. A per-replica identity adds directory objects with zero audit or access benefit.</p>
+    </div>
+    <div class="avoid">
+      <h4>🧠 Memory &amp; context isolation</h4>
+      <p>Agent memory is usually a shared store (Redis, AI Search) filtered by session ID at retrieval. Access is controlled by the agent identity's permissions — separate identities per session add complexity, not security.</p>
+    </div>
+    <div class="avoid">
+      <h4>📄 Per-object identities at scale</h4>
+      <p>One identity per meeting / document / ephemeral object at high volume isn't practical today. Use shared identities and distinguish interactions with session or context IDs at the app layer.</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider-fade"></div>
+
+<!-- TOKEN CLAIMS -->
+<section id="claims">
+  <div class="section-eyebrow">For resource servers &amp; API developers</div>
+  <h2 class="section-title">Reading agent token claims</h2>
+  <p class="section-sub">Clients treat access tokens as opaque, but <strong>resource servers must parse them</strong> to authorize. The flow that issued a token changes its claims — pick a scenario to see the distinguishing claims highlighted.</p>
+
+  <div class="tok-tabs" id="tokTabs"></div>
+  <div class="tok-stage">
+    <div class="jwt"><pre id="jwtBody"></pre></div>
+    <div class="claims-info" id="claimsInfo"></div>
+  </div>
+
+  <div class="callout">⚠️ <strong>Key gotcha:</strong> <code>idtyp=user</code> alone does <em>not</em> distinguish a human from an agent's user account. Use the subject-facet claim <code>xms_sub_fct</code> — value <code>13</code> means <strong>agent's user account</strong>, <code>11</code> means agent identity. Don't authorize on <code>xms_par_app_azp</code> (parent app) — log it for audit only, since many agents share a parent.</div>
+
+  <h3 style="font-size:1.05rem;margin:34px 0 4px">Claims glossary</h3>
+  <div class="gloss">
+    <table class="gtab">
+      <thead><tr><th>Claim</th><th>Meaning</th><th>Notes for authorization</th></tr></thead>
+      <tbody>
+        <tr><td><code>idtyp</code></td><td>Type of the subject entity</td><td><span class="v">user</span> or <span class="v">app</span> — depends on the flow</td></tr>
+        <tr><td><code>sub</code> / <code>oid</code></td><td>Subject &amp; its object ID</td><td>User OID (OBO), agent SP OID (autonomous), or agent-user OID</td></tr>
+        <tr><td><code>azp</code> / <code>appid</code></td><td>Authorized party — the agent identity's app ID</td><td>Use for client attribution in audit logs</td></tr>
+        <tr><td><code>scp</code></td><td>Delegated scopes</td><td>Present for user-context tokens; empty or <span class="v">/</span> for app-only</td></tr>
+        <tr><td><code>roles</code></td><td>App permissions</td><td>Present in autonomous (app-only) tokens</td></tr>
+        <tr><td><code>xms_act_fct</code></td><td>Actor facets</td><td><span class="v">11</span> = AgentIdentity</td></tr>
+        <tr><td><code>xms_sub_fct</code></td><td>Subject facets</td><td><span class="v">11</span> = AgentIdentity · <span class="v">13</span> = agent's user account</td></tr>
+        <tr><td><code>xms_idrel</code></td><td>Identity ↔ resource-tenant relationship</td><td><span class="v">1</span> member user · <span class="v">7</span> service principal · (multivalued, odd ints)</td></tr>
+        <tr><td><code>xms_par_app_azp</code></td><td>Parent app of the authorized party</td><td>Audit/logging only — <strong>not</strong> for authorization</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <p>Architecture &amp; developer guide for Microsoft Entra Agent ID · for learning.</p>
+    <a href="https://learn.microsoft.com/en-us/entra/agent-id/concept-agent-id-design-patterns" target="_blank" rel="noopener">Source: design patterns ↗</a>
+  </div>
+</footer>
+
+<script>
+/* ===== Deployment patterns ===== */
+const PATTERNS = {
+  singleton: {
+    title: "Low-code singleton agent", map: "1 blueprint → 1 agent identity",
+    desc: "A single agent for one task, often on a low-code platform like Copilot Studio. It either always acts for a signed-in user (interactive) or always as itself (autonomous).",
+    struct: [["bp","📋","Blueprint","×1"],["ai","🤖","Agent identity","×1"]],
+    meta: [
+      ["Permissions","Grant directly on the agent identity. Blueprint inheritable permissions usually not needed."],
+      ["Agent's user account","Only if it needs Exchange, Teams, or another user-object system."],
+      ["Why a blueprint at all?","Even a singleton gets consistent Conditional Access, monitoring, governance & audit — minimal setup."]
+    ],
+    example: "A Copilot Studio assistant for one task — one blueprint, one agent identity."
+  },
+  domain: {
+    title: "Domain worker (sequential multi-agent)", map: "1 blueprint → N agent identities",
+    desc: "Multiple agents in a tightly coupled, sequential workflow, sharing a codebase and runtime with the same security posture. Each has distinct responsibilities and different downstream access.",
+    struct: [["bp","📋","Blueprint","×1"],["ai","🤖","Agent identity","per role"]],
+    meta: [
+      ["Permissions","Shared baseline as inheritable on the blueprint; role-specific permissions on each agent identity."],
+      ["Why one blueprint?","All agents share one trust boundary; per-agent identities still give per-agent attribution in logs."],
+      ["Agent's user account","Not typically required."]
+    ],
+    example: "A retail system with inventory, product-comparison & supplier agents in the same Kubernetes namespace — one blueprint, three agent identities."
+  },
+  orchestrator: {
+    title: "Concurrent orchestrator + domain workers", map: "Multiple blueprints (one per trust boundary)",
+    desc: "An orchestrator dynamically activates domain workers that may run on different platforms, be run by different teams, and cross trust boundaries — so they need separate blueprints.",
+    struct: [["bp","📋","Blueprint A","orchestrator"],["bp","📋","Blueprint B/C","worker groups"],["ai","🤖","Agent identities","per role"]],
+    meta: [
+      ["Permissions","Each group scoped to its own blueprint & agent identities."],
+      ["Trust boundaries","Separate runtimes/secrets/teams ⇒ separate blueprints, so one domain's compromise doesn't reach peers."],
+      ["Ephemeral variant","The orchestrator can create a temporary agent identity for one session and delete it after — limiting blast radius. Note: runtime creation adds nondeterministic latency."]
+    ],
+    example: "An orchestrator coordinating worker groups owned by different teams — Blueprint A for the orchestrator, Blueprints B and C for each worker group."
+  },
+  peruser: {
+    title: "Per-user agents (small-n)", map: "1 blueprint → 1 agent identity per user/dept/env",
+    desc: "A separate agent identity per user, department, or environment — moderate counts (tens to low hundreds), not one per directory user.",
+    struct: [["bp","📋","Blueprint","×1"],["ai","🤖","Agent identity","per unit"]],
+    meta: [
+      ["When to use","Each instance needs different permissions, audit boundaries, or an independent lifecycle (disable one without affecting others)."],
+      ["Permissions","Inheritable baseline on the blueprint; per-instance permissions scoped to the user/unit."],
+      ["Agent's user account","Consider one per instance when the agent is a named representative (e.g. a sales agent receiving email for a territory)."]
+    ],
+    example: "A SOC analyst agent with one instance per cloud environment, or an audit agent per department."
+  },
+  digital: {
+    title: "Digital worker (fully autonomous)", map: "1 blueprint → 1 agent identity → 1 agent's user account",
+    desc: "A fully autonomous 'digital employee' provisioned with resources usually reserved for humans — a mailbox, OneDrive, and Teams presence. The highest level of agent autonomy.",
+    struct: [["bp","📋","Blueprint","×1"],["ai","🤖","Agent identity","×1"],["au","🧑‍💼","Agent user","×1 (fixed)"]],
+    meta: [
+      ["Permissions","Grant Exchange/Teams/OneDrive on the agent's user account; app-level permissions on the agent identity for non-user systems."],
+      ["Agent's user account","Required — one per digital worker. The 1:1 link is fixed and can't be shared."],
+      ["Autonomy","Acts as a named worker, listed in the Global Address List, can have a human manager in the org chart."]
+    ],
+    example: "An AI sales representative with a real mailbox in the GAL that responds to email and reports to a human manager."
+  }
+};
+const patOrder = [["singleton","🧩 Singleton"],["domain","🔗 Domain worker"],["orchestrator","🕸️ Orchestrator"],["peruser","👥 Per-user"],["digital","💼 Digital worker"]];
+const patTabs = document.getElementById("patTabs");
+patTabs.innerHTML = patOrder.map(([k,l],i)=>`<button class="pat-tab ${i===0?'active':''}" data-k="${k}">${l}</button>`).join("");
+function renderPattern(k){
+  const p = PATTERNS[k];
+  document.getElementById("patTitle").textContent = p.title;
+  document.getElementById("patMap").textContent = p.map;
+  document.getElementById("patDesc").textContent = p.desc;
+  document.getElementById("patStruct").innerHTML = p.struct.map((n,i)=>{
+    const arrow = i < p.struct.length-1 ? `<span class="struct-arrow">→</span>` : "";
+    return `<div class="struct-node ${n[0]}"><div class="sn-ic">${n[1]}</div><div class="sn-name">${n[2]}</div><div class="sn-count">${n[3]}</div></div>${arrow}`;
+  }).join("");
+  document.getElementById("patMeta").innerHTML = p.meta.map(m=>`<div class="pat-card"><h5>${m[0]}</h5><p>${m[1]}</p></div>`).join("");
+  document.getElementById("patExample").innerHTML = `<strong>Example:</strong> ${p.example}`;
+}
+patTabs.querySelectorAll(".pat-tab").forEach(b=>b.addEventListener("click",()=>{
+  patTabs.querySelectorAll(".pat-tab").forEach(x=>x.classList.toggle("active",x===b));
+  renderPattern(b.dataset.k);
+}));
+renderPattern("singleton");
+
+/* ===== Token claims ===== */
+const CLAIMS = {
+  obo: {
+    label: "On-behalf-of (human user)",
+    token: [
+      ["aud","api://resource", false],
+      ["idtyp","user", true],
+      ["sub","<user>", false],
+      ["oid","<user object ID>", true],
+      ["azp","<agent identity app ID>", false],
+      ["scp","Mail.Read User.Read", true],
+      ["xms_idrel","1", false],
+      ["xms_act_fct","11", false],
+      ["tid","<tenant ID>", false]
+    ],
+    key: [
+      ["idtyp","user","The subject is the human user the agent acts for."],
+      ["oid","user OID","Object ID is the user's — actions attribute to the person."],
+      ["scp","delegated","Delegated scopes the agent was granted for the user."]
+    ]
+  },
+  autonomous: {
+    label: "Autonomous (app-only)",
+    token: [
+      ["aud","api://resource", false],
+      ["idtyp","app", true],
+      ["oid","<agent identity OID>", true],
+      ["azp","<agent identity app ID>", false],
+      ["roles","Mail.Send", true],
+      ["scp","/  (unscoped)", true],
+      ["xms_idrel","7", true],
+      ["xms_act_fct","11", false],
+      ["xms_sub_fct","11", false],
+      ["tid","<tenant ID>", false]
+    ],
+    key: [
+      ["idtyp","app","The subject is the agent's service principal — no user context."],
+      ["roles","app perms","App-only tokens carry roles, not delegated scp."],
+      ["xms_idrel","7","Service-principal relationship to the resource tenant."],
+      ["xms_sub_fct","11","Subject is the AgentIdentity."]
+    ]
+  },
+  agentuser: {
+    label: "Agent's user account",
+    token: [
+      ["aud","api://resource", false],
+      ["idtyp","user", true],
+      ["oid","<agent-user OID>", true],
+      ["azp","<agent identity app ID>", false],
+      ["scp","Mail.ReadWrite", true],
+      ["xms_idrel","1", false],
+      ["xms_act_fct","11", false],
+      ["xms_sub_fct","13", true],
+      ["tid","<tenant ID>", false]
+    ],
+    key: [
+      ["idtyp","user","Looks like a user token — but it's the agent's own account."],
+      ["oid","agent-user OID","Object ID of the agent's user account, not a human."],
+      ["xms_sub_fct","13","The decisive claim: 13 = agent's user account (vs 11 = agent identity)."]
+    ]
+  }
+};
+const tokOrder = [["obo","🤝 On-behalf-of"],["autonomous","🤖 Autonomous"],["agentuser","🧑‍💼 Agent's user account"]];
+const tokTabs = document.getElementById("tokTabs");
+tokTabs.innerHTML = tokOrder.map(([k,l],i)=>`<button class="tok-tab ${i===0?'active':''}" data-k="${k}">${l}</button>`).join("");
+function esc(s){return s.replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function renderClaims(k){
+  const c = CLAIMS[k];
+  let lines = '<span class="cv">{</span>\n';
+  c.token.forEach((row,i)=>{
+    const comma = i < c.token.length-1 ? "," : "";
+    const inner = `  <span class="ck">"${row[0]}"</span><span class="cv">: "${esc(row[1])}"${comma}</span>`;
+    lines += row[2] ? `<span class="hl">${inner}</span>\n` : inner + "\n";
+  });
+  lines += '<span class="cv">}</span>';
+  document.getElementById("jwtBody").innerHTML = lines;
+  document.getElementById("claimsInfo").innerHTML = c.key.map(x=>
+    `<div class="claim-row key"><code>${x[0]}</code><span class="cr-val">${esc(x[1])}</span><p>${x[2]}</p></div>`
+  ).join("");
+}
+tokTabs.querySelectorAll(".tok-tab").forEach(b=>b.addEventListener("click",()=>{
+  tokTabs.querySelectorAll(".tok-tab").forEach(x=>x.classList.toggle("active",x===b));
+  renderClaims(b.dataset.k);
+}));
+renderClaims("obo");
+
+document.getElementById("themeToggle").addEventListener("click",()=>{
+  const cur=document.documentElement.getAttribute("data-theme");
+  document.documentElement.setAttribute("data-theme",cur==="dark"?"light":"dark");
+});
+</script>
+</body>
+</html>

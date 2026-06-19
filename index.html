@@ -93,7 +93,7 @@ code, .mono { font-family: Consolas, "Courier New", Courier, monospace; }
 }
 .topbar-inner {
   max-width: 1180px; margin: 0 auto; padding: 0 20px;
-  height: 60px; display: flex; align-items: center; gap: 18px;
+  min-height: 60px; display: flex; align-items: center; gap: 14px;
 }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 0.98rem; white-space: nowrap; }
 .brand-dot {
@@ -101,16 +101,17 @@ code, .mono { font-family: Consolas, "Courier New", Courier, monospace; }
   background: linear-gradient(135deg, var(--cp-accent), var(--cp-accent2)); display: grid; place-items: center;
   color: var(--cp-accent-fg); font-size: 14px; font-weight: 800;
 }
-.nav-links { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+.nav-links { display: flex; gap: 2px; margin-left: auto; align-items: center; overflow-x: auto; }
 .nav-links a {
-  color: var(--cp-text-muted); text-decoration: none; font-size: 0.85rem;
-  padding: 7px 12px; border-radius: 8px; transition: all .15s; white-space: nowrap;
+  color: var(--cp-text-muted); text-decoration: none; font-size: 0.84rem;
+  padding: 7px 11px; border-radius: 8px; transition: all .15s; white-space: nowrap;
 }
 .nav-links a:hover { background: var(--cp-accent-soft); color: var(--cp-accent); }
+.nav-links a.nav-cta { border: 1px solid var(--cp-accent); color: var(--cp-accent); }
 .theme-toggle {
   border: 1px solid var(--cp-border); background: var(--cp-surface);
   color: var(--cp-text); width: 38px; height: 34px; border-radius: 8px;
-  cursor: pointer; font-size: 15px; display: grid; place-items: center;
+  cursor: pointer; font-size: 15px; display: grid; place-items: center; flex-shrink: 0;
 }
 .theme-toggle:hover { border-color: var(--cp-accent); }
 
@@ -389,8 +390,8 @@ footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevate
       <a href="#authflows">Auth flows</a>
       <a href="#lifecycle">Lifecycle</a>
       <a href="#story">Guided story</a>
-      <a href="#context">A365 map</a>
-      <a href="auth-flows.html" style="border:1px solid var(--cp-accent);color:var(--cp-accent)">OAuth deep dive ↗</a>
+      <a href="architecture.html" class="nav-cta">Architecture ↗</a>
+      <a href="auth-flows.html" class="nav-cta">OAuth deep dive ↗</a>
     </nav>
     <button class="theme-toggle" id="themeToggle" title="Toggle theme">◑</button>
   </div>
@@ -418,6 +419,22 @@ footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevate
         <div class="desc">Its identity is separate from human users and from ordinary application registrations, so it can be governed individually.</div>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ============ DEVELOPER RESOURCES BAND ============ -->
+<section style="padding-top:28px;padding-bottom:28px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px">
+    <a href="auth-flows.html" style="text-decoration:none;color:inherit;background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:16px;padding:24px 26px;display:flex;flex-direction:column;gap:8px;box-shadow:0 0 2px rgba(0,0,0,0.12),0 1px 2px rgba(0,0,0,0.14);transition:all .2s" onmouseover="this.style.borderColor='var(--cp-accent)';this.style.transform='translateY(-3px)'" onmouseout="this.style.borderColor='var(--cp-border)';this.style.transform='none'">
+      <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--cp-accent);font-weight:700">Protocol deep dive</div>
+      <h3 style="font-size:1.2rem">🔐 OAuth 2.0 token-exchange flows →</h3>
+      <p style="font-size:.9rem;color:var(--cp-text-muted)">Step through all three Entra Agent ID flows with the real HTTP requests, FIC token chains (T1 / T2 / Tc / TR), Entra validations, and interactive sequence diagrams.</p>
+    </a>
+    <a href="architecture.html" style="text-decoration:none;color:inherit;background:var(--cp-surface);border:1px solid var(--cp-border);border-radius:16px;padding:24px 26px;display:flex;flex-direction:column;gap:8px;box-shadow:0 0 2px rgba(0,0,0,0.12),0 1px 2px rgba(0,0,0,0.14);transition:all .2s" onmouseover="this.style.borderColor='var(--cp-accent2)';this.style.transform='translateY(-3px)'" onmouseout="this.style.borderColor='var(--cp-border)';this.style.transform='none'">
+      <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--cp-accent2);font-weight:700">For engineers &amp; architects</div>
+      <h3 style="font-size:1.2rem">🏗️ Architecture &amp; developer guide →</h3>
+      <p style="font-size:.9rem;color:var(--cp-text-muted)">Design decisions, the auth sidecar pattern, deployment patterns (singleton → digital worker), trust boundaries, anti-patterns, and how to read agent token claims.</p>
+    </a>
   </div>
 </section>
 
@@ -642,11 +659,10 @@ footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevate
     </div>
   </div>
 
-  <div style="margin-top:24px;background:var(--cp-surface);border:1px solid var(--cp-accent);border-radius:16px;padding:24px 26px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;box-shadow:0 0 2px rgba(0,0,0,0.12),0 1px 2px rgba(0,0,0,0.14)">
-    <div style="max-width:640px">
-      <div style="font-size:.74rem;text-transform:uppercase;letter-spacing:.12em;color:var(--cp-accent);font-weight:700;margin-bottom:8px">Go deeper · protocol level</div>
-      <h3 style="font-size:1.2rem;margin-bottom:6px">Want the actual OAuth 2.0 token exchanges?</h3>
-      <p style="font-size:.92rem;color:var(--cp-text-muted)">Step through all three Entra Agent ID flows — <strong>Autonomous app</strong>, <strong>On-Behalf-Of</strong>, and <strong>Agent's user account</strong> — with the real HTTP requests, FIC token chains (T1 / T2 / Tc / TR), and Entra validations, animated step by step.</p>
+  <div style="margin-top:24px;background:var(--cp-surface);border:1px solid var(--cp-accent);border-radius:16px;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap">
+    <div style="max-width:680px">
+      <h3 style="font-size:1.05rem;margin-bottom:4px">Want the actual OAuth 2.0 token exchanges?</h3>
+      <p style="font-size:.9rem;color:var(--cp-text-muted)">Step through all three flows with real HTTP requests, FIC token chains, validations, and interactive sequence diagrams.</p>
     </div>
     <a href="auth-flows.html" class="btn btn-primary">Open the OAuth deep dive →</a>
   </div>
