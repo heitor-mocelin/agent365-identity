@@ -177,6 +177,19 @@ table.gtab .v { color: var(--cp-accent2); font-weight: 700; font-family: Consola
 .callout.info { border-left-color: var(--cp-link); }
 .callout code { background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 5px; padding: 0 5px; font-size: .82rem; color: var(--cp-accent); }
 
+/* ----- hover glossary tooltip ----- */
+.gterm { color: var(--cp-accent); border-bottom: 1.5px dotted var(--cp-accent); cursor: help; font-weight: 600; }
+.gterm:hover, .gterm:focus { background: var(--cp-accent-soft); border-radius: 4px 4px 0 0; outline: none; }
+.gloss-balloon {
+  position: fixed; z-index: 200; max-width: 300px; background: var(--cp-panel-strong);
+  border: 1px solid var(--cp-border); border-radius: 12px; padding: 14px 16px;
+  box-shadow: var(--cp-shadow); opacity: 0; transform: translateY(4px); pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease;
+}
+.gloss-balloon.show { opacity: 1; transform: none; }
+.gloss-balloon h6 { font-size: .72rem; text-transform: uppercase; letter-spacing: .09em; color: var(--cp-accent); margin-bottom: 6px; }
+.gloss-balloon p { font-size: .85rem; color: var(--cp-text-muted); line-height: 1.5; }
+
 footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevated); margin-top: 40px; }
 .footer-inner { max-width: 1200px; margin: 0 auto; padding: 32px 20px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; align-items: center; }
 .footer-inner p { font-size: .84rem; color: var(--cp-text-muted); }
@@ -243,7 +256,7 @@ footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevate
 <section id="sidecar">
   <div class="section-eyebrow">Reference deployment · the auth sidecar</div>
   <h2 class="section-title">Keep credentials out of your agent code</h2>
-  <p class="section-sub">The Microsoft Entra Auth SDK ships as a <strong>sidecar container</strong> that runs next to your agent and owns every token operation — client-credentials, FIC, OBO, caching, refresh — so your code never touches a secret.</p>
+  <p class="section-sub">The Microsoft Entra Auth SDK ships as a <strong><span class="gterm" data-glossary="sidecar" tabindex="0">sidecar</span> container</strong> that runs next to your agent and owns every token operation — client-credentials, FIC, OBO, caching, refresh — so your code never touches a secret.</p>
 
   <div class="pod">
     <span class="pod-label">Pod / compose service — shared local network</span>
@@ -572,6 +585,46 @@ tokTabs.querySelectorAll(".tok-tab").forEach(b=>b.addEventListener("click",()=>{
   renderClaims(b.dataset.k);
 }));
 renderClaims("obo");
+
+/* ===== hover glossary tooltip (extensible: add entries to GLOSSARY) ===== */
+const GLOSSARY = {
+  sidecar: {
+    title: "Sidecar container",
+    def: "A helper container deployed right alongside your main app container — in the same pod or host, sharing its local network and lifecycle. It takes over a cross-cutting concern (here, all token acquisition, caching, and validation) so that logic stays out of your application code."
+  }
+};
+const balloon = document.createElement("div");
+balloon.className = "gloss-balloon";
+document.body.appendChild(balloon);
+let balloonHideTimer = null;
+
+function showBalloon(el) {
+  const g = GLOSSARY[el.dataset.glossary];
+  if (!g) return;
+  clearTimeout(balloonHideTimer);
+  balloon.innerHTML = `<h6>${g.title}</h6><p>${g.def}</p>`;
+  balloon.classList.add("show");
+  const r = el.getBoundingClientRect();
+  const bw = balloon.offsetWidth, bh = balloon.offsetHeight;
+  let left = r.left + r.width / 2 - bw / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+  let top = r.top - bh - 10;
+  if (top < 8) top = r.bottom + 10; // flip below if no room above
+  balloon.style.left = left + "px";
+  balloon.style.top = top + "px";
+}
+function hideBalloon() {
+  balloonHideTimer = setTimeout(() => balloon.classList.remove("show"), 80);
+}
+document.querySelectorAll(".gterm[data-glossary]").forEach(el => {
+  el.addEventListener("mouseenter", () => showBalloon(el));
+  el.addEventListener("mouseleave", hideBalloon);
+  el.addEventListener("focus", () => showBalloon(el));
+  el.addEventListener("blur", hideBalloon);
+  el.addEventListener("click", () => showBalloon(el)); // touch support
+});
+balloon.addEventListener("mouseenter", () => clearTimeout(balloonHideTimer));
+balloon.addEventListener("mouseleave", hideBalloon);
 
 document.getElementById("themeToggle").addEventListener("click",()=>{
   const cur=document.documentElement.getAttribute("data-theme");
