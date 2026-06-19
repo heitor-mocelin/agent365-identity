@@ -24,10 +24,12 @@
   --cp-text: #242424;
   --cp-text-muted: #5c5c5c;
   --cp-text-soft: #6f6f6f;
-  --cp-accent: #b11f4b;
-  --cp-accent-hover: #9a1a41;
-  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent: #1565c0;
+  --cp-accent-hover: #0d4f9e;
+  --cp-accent-soft: rgba(21, 101, 192, 0.09);
   --cp-accent-fg: #ffffff;
+  --cp-accent2: #2e9e6b;
+  --cp-accent2-soft: rgba(46, 158, 107, 0.10);
   --cp-success: #16a34a;
   --cp-danger: #dc2626;
   --cp-warning: #f59e0b;
@@ -37,7 +39,7 @@
   --cp-panel: rgba(255, 255, 255, 0.86);
   --cp-panel-strong: rgba(255, 255, 255, 0.96);
   --cp-sheen: rgba(255, 255, 255, 0.55);
-  --cp-highlight: rgba(177, 31, 75, 0.12);
+  --cp-highlight: rgba(21, 101, 192, 0.12);
 }
 html[data-theme="dark"] {
   color-scheme: dark;
@@ -50,10 +52,12 @@ html[data-theme="dark"] {
   --cp-text: #dedede;
   --cp-text-muted: #919191;
   --cp-text-soft: #b0b0b0;
-  --cp-accent: #fd8ea1;
-  --cp-accent-hover: #fb7b91;
-  --cp-accent-soft: rgba(253, 142, 161, 0.14);
-  --cp-accent-fg: #1a1a1a;
+  --cp-accent: #5fb0f0;
+  --cp-accent-hover: #82c2f4;
+  --cp-accent-soft: rgba(95, 176, 240, 0.16);
+  --cp-accent-fg: #0c1c2b;
+  --cp-accent2: #57d99a;
+  --cp-accent2-soft: rgba(87, 217, 154, 0.16);
   --cp-success: #4ade80;
   --cp-danger: #f87171;
   --cp-warning: #fbbf24;
@@ -63,7 +67,7 @@ html[data-theme="dark"] {
   --cp-panel: rgba(41, 41, 41, 0.72);
   --cp-panel-strong: rgba(41, 41, 41, 0.96);
   --cp-sheen: rgba(255, 255, 255, 0.04);
-  --cp-highlight: rgba(253, 142, 161, 0.12);
+  --cp-highlight: rgba(95, 176, 240, 0.14);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
@@ -77,7 +81,7 @@ code, .mono, pre { font-family: Consolas, "Courier New", Courier, monospace; }
 .topbar { position: sticky; top: 0; z-index: 50; background: var(--cp-panel-strong); backdrop-filter: blur(12px); border-bottom: 1px solid var(--cp-border); }
 .topbar-inner { max-width: 1200px; margin: 0 auto; padding: 0 20px; height: 60px; display: flex; align-items: center; gap: 16px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: .96rem; white-space: nowrap; }
-.brand-dot { width: 26px; height: 26px; border-radius: 7px; background: var(--cp-accent); display: grid; place-items: center; color: var(--cp-accent-fg); font-size: 14px; font-weight: 800; }
+.brand-dot { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(135deg, var(--cp-accent), var(--cp-accent2)); display: grid; place-items: center; color: var(--cp-accent-fg); font-size: 14px; font-weight: 800; }
 .nav-links { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; align-items: center; }
 .nav-links a { color: var(--cp-text-muted); text-decoration: none; font-size: .85rem; padding: 7px 12px; border-radius: 8px; transition: all .15s; white-space: nowrap; }
 .nav-links a:hover { background: var(--cp-accent-soft); color: var(--cp-accent); }
@@ -94,7 +98,7 @@ section { max-width: 1200px; margin: 0 auto; padding: 56px 20px; }
 .hero { padding-top: 64px; padding-bottom: 20px; }
 .hero-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border: 1px solid var(--cp-border); border-radius: 999px; background: var(--cp-surface); font-size: .8rem; color: var(--cp-text-muted); margin-bottom: 20px; }
 .hero h1 { font-size: clamp(1.9rem, 4.5vw, 2.9rem); line-height: 1.1; letter-spacing: -.025em; font-weight: 800; max-width: 880px; margin-bottom: 16px; }
-.hero h1 .accent { color: var(--cp-accent); }
+.hero h1 .accent { background: linear-gradient(90deg, var(--cp-accent), var(--cp-accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .hero p { font-size: 1.1rem; color: var(--cp-text-muted); max-width: 720px; }
 
 /* concept chips row */
@@ -163,7 +167,7 @@ section { max-width: 1200px; margin: 0 auto; padding: 56px 20px; }
 .tok-t1 { color: var(--cp-link); }
 .tok-t2 { color: var(--cp-warning); }
 .tok-tc { color: var(--cp-success); }
-.tok-tr { color: var(--cp-accent); }
+.tok-tr { color: #8b5cf6; }
 .kw { color: var(--cp-accent); }
 .cm { color: var(--cp-text-soft); font-style: italic; }
 .validate { margin-top: 12px; border-left: 3px solid var(--cp-success); background: var(--cp-surface-soft); padding: 10px 12px; border-radius: 0 8px 8px 0; font-size: .8rem; color: var(--cp-text-muted); }
@@ -304,7 +308,7 @@ footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevate
       <div class="legend-item"><span class="swatch" style="background:var(--cp-link)"></span> <code>T1</code> — blueprint→agent exchange token (FIC)</div>
       <div class="legend-item"><span class="swatch" style="background:var(--cp-warning)"></span> <code>T2</code> — agent→user-account exchange token</div>
       <div class="legend-item"><span class="swatch" style="background:var(--cp-success)"></span> <code>Tc</code> — signed-in user's client token</div>
-      <div class="legend-item"><span class="swatch" style="background:var(--cp-accent)"></span> <code>TR</code> — final resource access token</div>
+      <div class="legend-item"><span class="swatch" style="background:#8b5cf6"></span> <code>TR</code> — final resource access token</div>
     </div>
 
     <div class="notes" id="notes"></div>
