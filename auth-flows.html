@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Agent OAuth 2.0 Flows — interactive deep dive</title>
+<script>
+  (() => {
+    const param = new URLSearchParams(window.location.search).get("scoutTheme");
+    const theme =
+      param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<style>
+:root {
+  color-scheme: light;
+  --cp-bg: #f7f4ef;
+  --cp-bg-elevated: #fcfbf8;
+  --cp-surface: #ffffff;
+  --cp-surface-soft: #f5f5f5;
+  --cp-border: #dedede;
+  --cp-border-strong: #919191;
+  --cp-text: #242424;
+  --cp-text-muted: #5c5c5c;
+  --cp-text-soft: #6f6f6f;
+  --cp-accent: #b11f4b;
+  --cp-accent-hover: #9a1a41;
+  --cp-accent-soft: rgba(177, 31, 75, 0.08);
+  --cp-accent-fg: #ffffff;
+  --cp-success: #16a34a;
+  --cp-danger: #dc2626;
+  --cp-warning: #f59e0b;
+  --cp-link: #0078d4;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --cp-overlay: rgba(255, 255, 255, 0.8);
+  --cp-panel: rgba(255, 255, 255, 0.86);
+  --cp-panel-strong: rgba(255, 255, 255, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.55);
+  --cp-highlight: rgba(177, 31, 75, 0.12);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --cp-bg: #3d3b3a;
+  --cp-bg-elevated: #343231;
+  --cp-surface: #292929;
+  --cp-surface-soft: #2e2e2e;
+  --cp-border: #474747;
+  --cp-border-strong: #5f5f5f;
+  --cp-text: #dedede;
+  --cp-text-muted: #919191;
+  --cp-text-soft: #b0b0b0;
+  --cp-accent: #fd8ea1;
+  --cp-accent-hover: #fb7b91;
+  --cp-accent-soft: rgba(253, 142, 161, 0.14);
+  --cp-accent-fg: #1a1a1a;
+  --cp-success: #4ade80;
+  --cp-danger: #f87171;
+  --cp-warning: #fbbf24;
+  --cp-link: #4da6ff;
+  --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --cp-overlay: rgba(41, 41, 41, 0.88);
+  --cp-panel: rgba(41, 41, 41, 0.72);
+  --cp-panel-strong: rgba(41, 41, 41, 0.96);
+  --cp-sheen: rgba(255, 255, 255, 0.04);
+  --cp-highlight: rgba(253, 142, 161, 0.12);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--cp-bg); color: var(--cp-text); line-height: 1.55; -webkit-font-smoothing: antialiased;
+}
+code, .mono, pre { font-family: Consolas, "Courier New", Courier, monospace; }
+
+/* nav */
+.topbar { position: sticky; top: 0; z-index: 50; background: var(--cp-panel-strong); backdrop-filter: blur(12px); border-bottom: 1px solid var(--cp-border); }
+.topbar-inner { max-width: 1200px; margin: 0 auto; padding: 0 20px; height: 60px; display: flex; align-items: center; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: .96rem; white-space: nowrap; }
+.brand-dot { width: 26px; height: 26px; border-radius: 7px; background: var(--cp-accent); display: grid; place-items: center; color: var(--cp-accent-fg); font-size: 14px; font-weight: 800; }
+.nav-links { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; align-items: center; }
+.nav-links a { color: var(--cp-text-muted); text-decoration: none; font-size: .85rem; padding: 7px 12px; border-radius: 8px; transition: all .15s; white-space: nowrap; }
+.nav-links a:hover { background: var(--cp-accent-soft); color: var(--cp-accent); }
+.nav-links a.back { border: 1px solid var(--cp-border); }
+.theme-toggle { border: 1px solid var(--cp-border); background: var(--cp-surface); color: var(--cp-text); width: 38px; height: 34px; border-radius: 8px; cursor: pointer; font-size: 15px; display: grid; place-items: center; }
+.theme-toggle:hover { border-color: var(--cp-accent); }
+
+section { max-width: 1200px; margin: 0 auto; padding: 56px 20px; }
+.section-eyebrow { text-transform: uppercase; letter-spacing: .14em; font-size: .72rem; font-weight: 700; color: var(--cp-accent); margin-bottom: 10px; }
+.section-title { font-size: 1.8rem; font-weight: 700; margin-bottom: 12px; letter-spacing: -.01em; }
+.section-sub { font-size: 1.02rem; color: var(--cp-text-muted); max-width: 760px; }
+
+/* hero */
+.hero { padding-top: 64px; padding-bottom: 20px; }
+.hero-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border: 1px solid var(--cp-border); border-radius: 999px; background: var(--cp-surface); font-size: .8rem; color: var(--cp-text-muted); margin-bottom: 20px; }
+.hero h1 { font-size: clamp(1.9rem, 4.5vw, 2.9rem); line-height: 1.1; letter-spacing: -.025em; font-weight: 800; max-width: 880px; margin-bottom: 16px; }
+.hero h1 .accent { color: var(--cp-accent); }
+.hero p { font-size: 1.1rem; color: var(--cp-text-muted); max-width: 720px; }
+
+/* concept chips row */
+.concepts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 14px; margin-top: 32px; }
+.concept { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 14px; padding: 18px 20px; box-shadow: 0 0 2px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.14); }
+.concept .c-ic { font-size: 20px; margin-bottom: 10px; }
+.concept h4 { font-size: .96rem; margin-bottom: 5px; }
+.concept p { font-size: .85rem; color: var(--cp-text-muted); }
+.concept code { background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 5px; padding: 0 5px; font-size: .8rem; color: var(--cp-accent); }
+
+.divider-fade { height: 1px; background: linear-gradient(90deg, transparent, var(--cp-border), transparent); max-width: 1200px; margin: 0 auto; }
+
+/* flow selector */
+.flow-tabs { display: flex; gap: 10px; flex-wrap: wrap; margin: 30px 0 8px; }
+.flow-tab { flex: 1; min-width: 240px; text-align: left; cursor: pointer; border: 1.5px solid var(--cp-border); background: var(--cp-surface); border-radius: 14px; padding: 18px 20px; transition: all .18s; font-family: inherit; color: var(--cp-text); }
+.flow-tab:hover { border-color: var(--cp-accent); transform: translateY(-2px); }
+.flow-tab.active { border-color: var(--cp-accent); box-shadow: 0 0 0 1px var(--cp-accent), var(--cp-shadow); background: var(--cp-accent-soft); }
+.flow-tab .ft-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.flow-tab .ft-ic { font-size: 22px; }
+.flow-tab .ft-num { margin-left: auto; font-size: .72rem; font-weight: 800; color: var(--cp-accent); letter-spacing: .08em; }
+.flow-tab h3 { font-size: 1.05rem; margin-bottom: 4px; }
+.flow-tab p { font-size: .82rem; color: var(--cp-text-muted); }
+
+/* stage */
+.stage { background: var(--cp-bg-elevated); border: 1px solid var(--cp-border); border-radius: 20px; padding: 28px; margin-top: 22px; box-shadow: var(--cp-shadow); }
+.stage-head { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; margin-bottom: 6px; }
+.stage-head h3 { font-size: 1.35rem; }
+.stage-head .sh-tags { display: flex; gap: 7px; flex-wrap: wrap; }
+.sh-tag { font-size: .74rem; padding: 5px 11px; border-radius: 999px; background: var(--cp-accent-soft); color: var(--cp-accent); font-weight: 600; }
+.stage-desc { font-size: .96rem; color: var(--cp-text-muted); max-width: 820px; margin-bottom: 20px; }
+
+/* actors lane */
+.lane { display: flex; justify-content: space-between; gap: 6px; padding: 16px 8px 8px; border-bottom: 1px dashed var(--cp-border); margin-bottom: 18px; overflow-x: auto; }
+.lane-actor { text-align: center; min-width: 92px; flex: 1; opacity: .55; transition: all .3s; }
+.lane-actor.lit { opacity: 1; }
+.lane-actor .la-ic { width: 50px; height: 50px; margin: 0 auto 8px; border-radius: 14px; background: var(--cp-surface); border: 1.5px solid var(--cp-border); display: grid; place-items: center; font-size: 23px; transition: all .3s; }
+.lane-actor.lit .la-ic { border-color: var(--cp-accent); box-shadow: 0 0 0 3px var(--cp-accent-soft); }
+.lane-actor .la-name { font-size: .76rem; font-weight: 600; line-height: 1.25; }
+.lane-actor .la-role { font-size: .68rem; color: var(--cp-text-soft); }
+
+/* split: steps + request panel */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 880px) { .split { grid-template-columns: 1fr; } }
+
+.steps { display: flex; flex-direction: column; gap: 10px; }
+.step { display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px; border-radius: 12px; background: var(--cp-surface); border: 1px solid var(--cp-border); cursor: pointer; transition: all .2s; opacity: .5; }
+.step.shown { opacity: 1; }
+.step.active { border-color: var(--cp-accent); box-shadow: 0 0 0 1px var(--cp-accent); }
+.step .s-num { width: 28px; height: 28px; border-radius: 50%; background: var(--cp-surface-soft); border: 1.5px solid var(--cp-border-strong); color: var(--cp-text); display: grid; place-items: center; font-weight: 700; font-size: .82rem; flex-shrink: 0; transition: all .2s; }
+.step.active .s-num, .step.shown .s-num { background: var(--cp-accent); border-color: var(--cp-accent); color: var(--cp-accent-fg); }
+.step .s-body strong { display: block; font-size: .92rem; margin-bottom: 3px; }
+.step .s-body span { font-size: .84rem; color: var(--cp-text-muted); }
+.step .s-token { display: inline-flex; align-items: center; gap: 5px; margin-top: 7px; font-size: .74rem; font-weight: 700; padding: 3px 9px; border-radius: 6px; background: var(--cp-accent-soft); color: var(--cp-accent); font-family: Consolas, monospace; }
+
+/* request/response panel */
+.req-panel { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; min-height: 300px; position: sticky; top: 76px; align-self: start; }
+.req-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--cp-border); background: var(--cp-surface-soft); }
+.req-head .dot { width: 10px; height: 10px; border-radius: 50%; }
+.req-head .dot.r { background: var(--cp-danger); } .req-head .dot.y { background: var(--cp-warning); } .req-head .dot.g { background: var(--cp-success); }
+.req-head .req-title { margin-left: 8px; font-size: .8rem; color: var(--cp-text-muted); font-weight: 600; }
+.req-method { margin-left: auto; font-size: .72rem; font-weight: 800; padding: 3px 9px; border-radius: 6px; background: var(--cp-accent); color: var(--cp-accent-fg); }
+.req-body { padding: 16px; overflow-x: auto; flex: 1; }
+.req-body pre { font-size: .82rem; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+.req-body .empty { color: var(--cp-text-soft); font-size: .88rem; font-style: italic; }
+.tok { font-weight: 700; }
+.tok-t1 { color: var(--cp-link); }
+.tok-t2 { color: var(--cp-warning); }
+.tok-tc { color: var(--cp-success); }
+.tok-tr { color: var(--cp-accent); }
+.kw { color: var(--cp-accent); }
+.cm { color: var(--cp-text-soft); font-style: italic; }
+.validate { margin-top: 12px; border-left: 3px solid var(--cp-success); background: var(--cp-surface-soft); padding: 10px 12px; border-radius: 0 8px 8px 0; font-size: .8rem; color: var(--cp-text-muted); }
+.validate strong { color: var(--cp-text); }
+
+.controls { display: flex; gap: 10px; margin-top: 20px; align-items: center; flex-wrap: wrap; }
+.btn { border: none; cursor: pointer; font-family: inherit; font-size: .9rem; font-weight: 600; padding: 11px 20px; border-radius: 10px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; transition: all .15s; }
+.btn-primary { background: var(--cp-accent); color: var(--cp-accent-fg); }
+.btn-primary:hover { background: var(--cp-accent-hover); transform: translateY(-1px); }
+.btn-ghost { background: var(--cp-surface); color: var(--cp-text); border: 1px solid var(--cp-border); }
+.btn-ghost:hover { border-color: var(--cp-accent); color: var(--cp-accent); }
+.step-indicator { font-size: .84rem; color: var(--cp-text-soft); margin-left: auto; }
+
+/* token legend */
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--cp-border); }
+.legend-item { display: flex; align-items: center; gap: 7px; font-size: .8rem; color: var(--cp-text-muted); }
+.legend-item .swatch { width: 12px; height: 12px; border-radius: 3px; }
+
+/* extra notes */
+.notes { margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: 12px; }
+.note { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 12px; padding: 16px 18px; }
+.note h5 { font-size: .9rem; margin-bottom: 6px; display: flex; align-items: center; gap: 7px; }
+.note p { font-size: .84rem; color: var(--cp-text-muted); }
+.note code { background: var(--cp-surface-soft); border: 1px solid var(--cp-border); border-radius: 5px; padding: 0 5px; font-size: .78rem; color: var(--cp-accent); }
+
+/* comparison table */
+.cmp-wrap { overflow-x: auto; margin-top: 32px; border: 1px solid var(--cp-border); border-radius: 16px; }
+table.cmp { width: 100%; border-collapse: collapse; font-size: .88rem; min-width: 720px; }
+table.cmp th, table.cmp td { text-align: left; padding: 14px 18px; border-bottom: 1px solid var(--cp-border); vertical-align: top; }
+table.cmp thead th { background: var(--cp-surface-soft); font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--cp-text-soft); position: sticky; top: 0; }
+table.cmp tbody tr:last-child td { border-bottom: none; }
+table.cmp td:first-child, table.cmp th:first-child { font-weight: 700; color: var(--cp-text); background: var(--cp-bg-elevated); }
+table.cmp .yes { color: var(--cp-success); font-weight: 700; }
+table.cmp .no { color: var(--cp-danger); font-weight: 700; }
+.cmp-flowname { display: inline-flex; align-items: center; gap: 7px; }
+
+footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevated); margin-top: 40px; }
+.footer-inner { max-width: 1200px; margin: 0 auto; padding: 32px 20px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; align-items: center; }
+.footer-inner p { font-size: .84rem; color: var(--cp-text-muted); }
+.footer-inner a { color: var(--cp-link); text-decoration: none; font-size: .84rem; }
+.footer-inner a:hover { text-decoration: underline; }
+
+@media (max-width: 640px) { section { padding: 40px 16px; } .nav-links a:not(.back) { display: none; } }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="brand-dot">A</span> Agent OAuth 2.0 <span style="color:var(--cp-accent)">flows</span></div>
+    <nav class="nav-links">
+      <a href="#concepts">Concepts</a>
+      <a href="#explorer">Flow explorer</a>
+      <a href="#compare">Compare</a>
+      <a href="index.html" class="back">← Identity home</a>
+    </nav>
+    <button class="theme-toggle" id="themeToggle" title="Toggle theme">◑</button>
+  </div>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">Microsoft Entra Agent ID · OAuth 2.0 protocol deep dive</div>
+  <h1>The three agent <span class="accent">token-exchange flows</span>, step by step.</h1>
+  <p>Agents use OAuth 2.0 with specialized <strong>Federated Identity Credential (FIC)</strong> token exchanges. Every flow is a multi-stage chain where an <em>agent identity blueprint</em> impersonates its child <em>agent identity</em>. Step through each one and watch the actual HTTP requests, tokens, and validations.</p>
+</section>
+
+<!-- SHARED CONCEPTS -->
+<section id="concepts" style="padding-top:8px">
+  <div class="section-eyebrow">Before you start · shared building blocks</div>
+  <h2 class="section-title">Concepts every flow relies on</h2>
+  <p class="section-sub">All three flows are built from the same primitives. Get these and the flows become easy to read.</p>
+  <div class="concepts">
+    <div class="concept"><div class="c-ic">🧬</div><h4>Blueprint impersonates its agent</h4><p>The agent identity blueprint (actor) obtains a token <em>for</em> its child agent identity (subject). A blueprint can impersonate many agents; an agent has exactly one blueprint.</p></div>
+    <div class="concept"><div class="c-ic">🎫</div><h4>FIC token exchange</h4><p>The blueprint presents a credential and gets back <code>T1</code> — a token-exchange token (Federated Identity Credential) used to act as the agent.</p></div>
+    <div class="concept"><div class="c-ic">🛂</div><h4><code>fmi_path</code></h4><p>The agent identity's client ID. It tells Entra ID <em>which</em> child agent the blueprint is impersonating during the exchange.</p></div>
+    <div class="concept"><div class="c-ic">🔑</div><h4>Managed identity = preferred credential</h4><p>Use a managed identity (UAMI) token <code>TUAMI</code> as the FIC. Avoid client secrets in production — prefer FIC or certificates.</p></div>
+    <div class="concept"><div class="c-ic">🚫</div><h4>No interactive flows</h4><p>All agents are <strong>confidential clients</strong>. <code>/authorize</code> is never used — auth happens only via programmatic token exchanges.</p></div>
+    <div class="concept"><div class="c-ic">🏛️</div><h4>Single-tenant agents</h4><p>Agent identities always operate within one tenant's security and policy boundaries, regardless of the blueprint's tenancy.</p></div>
+  </div>
+</section>
+
+<div class="divider-fade"></div>
+
+<!-- FLOW EXPLORER -->
+<section id="explorer">
+  <div class="section-eyebrow">Interactive · pick a flow and step through it</div>
+  <h2 class="section-title">Flow explorer</h2>
+  <p class="section-sub">Choose one of the three flows below, then use <strong>Next step</strong> (or click a step) to advance. The right panel shows the exact request sent at each stage and what Entra ID validates.</p>
+
+  <div class="flow-tabs" id="flowTabs">
+    <button class="flow-tab active" data-flow="autonomous">
+      <div class="ft-top"><span class="ft-ic">🤖</span><span class="ft-num">FLOW 1</span></div>
+      <h3>Autonomous app (app-only)</h3>
+      <p>Agent acts on its own, no user context. Client-credentials all the way.</p>
+    </button>
+    <button class="flow-tab" data-flow="obo">
+      <div class="ft-top"><span class="ft-ic">🤝</span><span class="ft-num">FLOW 2</span></div>
+      <h3>On-Behalf-Of (OBO)</h3>
+      <p>Agent acts for a signed-in user using their delegated token.</p>
+    </button>
+    <button class="flow-tab" data-flow="agentuser">
+      <div class="ft-top"><span class="ft-ic">🧑‍💼</span><span class="ft-num">FLOW 3</span></div>
+      <h3>Agent's user account</h3>
+      <p>Agent acts as its own user principal (its own mailbox/identity).</p>
+    </button>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head">
+      <h3 id="stageTitle"></h3>
+      <div class="sh-tags" id="stageTags"></div>
+    </div>
+    <p class="stage-desc" id="stageDesc"></p>
+
+    <div class="lane" id="lane"></div>
+
+    <div class="split">
+      <div class="steps" id="steps"></div>
+      <div class="req-panel">
+        <div class="req-head">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+          <span class="req-title" id="reqTitle">Request</span>
+          <span class="req-method" id="reqMethod">POST</span>
+        </div>
+        <div class="req-body" id="reqBody"><p class="empty">Click “Next step” to begin the token exchange…</p></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-primary" id="btnNext">Next step →</button>
+      <button class="btn btn-ghost" id="btnPlay">▶ Auto-play</button>
+      <button class="btn btn-ghost" id="btnReset">↺ Reset</button>
+      <span class="step-indicator" id="stepIndicator"></span>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><span class="swatch" style="background:var(--cp-link)"></span> <code>T1</code> — blueprint→agent exchange token (FIC)</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--cp-warning)"></span> <code>T2</code> — agent→user-account exchange token</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--cp-success)"></span> <code>Tc</code> — signed-in user's client token</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--cp-accent)"></span> <code>TR</code> — final resource access token</div>
+    </div>
+
+    <div class="notes" id="notes"></div>
+  </div>
+</section>
+
+<div class="divider-fade"></div>
+
+<!-- COMPARE -->
+<section id="compare">
+  <div class="section-eyebrow">Side by side</div>
+  <h2 class="section-title">How the three flows compare</h2>
+  <p class="section-sub">Same FIC foundation, different subjects and grant types. This is the cheat sheet.</p>
+  <div class="cmp-wrap">
+    <table class="cmp">
+      <thead>
+        <tr>
+          <th>Aspect</th>
+          <th><span class="cmp-flowname">🤖 Autonomous</span></th>
+          <th><span class="cmp-flowname">🤝 On-Behalf-Of</span></th>
+          <th><span class="cmp-flowname">🧑‍💼 Agent's user account</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Acts as</td><td>The agent itself (app-only)</td><td>A signed-in human user</td><td>The agent's own user principal</td></tr>
+        <tr><td>User context?</td><td><span class="no">✗</span> none</td><td><span class="yes">✓</span> the user's</td><td><span class="yes">✓</span> agent-user's</td></tr>
+        <tr><td>Tokens exchanged</td><td>T1 → TR</td><td>Tc + T1 → TR</td><td>T1 → T2 → TR</td></tr>
+        <tr><td>Final grant type</td><td><code>client_credentials</code></td><td><code>jwt-bearer</code> (OBO)</td><td><code>user_fic</code> (OBO)</td></tr>
+        <tr><td>Needs a user token in?</td><td><span class="no">✗</span></td><td><span class="yes">✓</span> Tc from client</td><td><span class="no">✗</span> (uses agent-user FIC)</td></tr>
+        <tr><td>Key extra param</td><td><code>fmi_path</code></td><td><code>requested_token_use=on_behalf_of</code></td><td><code>username</code> + <code>user_federated_identity_credential</code></td></tr>
+        <tr><td>Entra validates</td><td>T1 aud == blueprint</td><td>T1 aud == blueprint &amp; Tc aud == blueprint</td><td>T1 aud == blueprint, then T2 aud == agent</td></tr>
+        <tr><td>Refresh token?</td><td>—</td><td><span class="yes">✓</span> for async/background</td><td>—</td></tr>
+        <tr><td>Typical use</td><td>Scheduled tasks, monitoring, agent-owned resources</td><td>Reading a user's mail/calendar/files on their behalf</td><td>Agent with its own mailbox acting as itself</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <p>Interactive deep dive into the three Microsoft Entra Agent ID OAuth 2.0 flows · for learning.</p>
+    <a href="https://learn.microsoft.com/en-us/entra/agent-id/agent-oauth-protocols" target="_blank" rel="noopener">Source docs ↗</a>
+  </div>
+</footer>
+
+<script>
+/* ============================================================
+   FLOW DATA — faithful to the Entra Agent ID protocol docs
+   ============================================================ */
+const ACTORS = {
+  user:      { ic: "🧑", name: "User", role: "signs in" },
+  client:    { ic: "💻", name: "Client app", role: "holds Tc" },
+  blueprint: { ic: "📋", name: "Agent blueprint", role: "actor / impersonator" },
+  agent:     { ic: "🤖", name: "Agent identity", role: "subject / child" },
+  agentuser: { ic: "🧑‍💼", name: "Agent user acct", role: "subject" },
+  entra:     { ic: "🛡️", name: "Microsoft Entra ID", role: "issues tokens" },
+  resource:  { ic: "☁️", name: "Resource API", role: "protected" }
+};
+
+const FLOWS = {
+  autonomous: {
+    title: "Flow 1 — Autonomous app (app-only)",
+    tags: ["Acts as itself", "No user context", "client_credentials"],
+    desc: "App-only operations let the agent act autonomously. The blueprint (actor) obtains a token for the agent identity (subject); the agent then exchanges it for an app-only resource token. Tenant admins grant the permissions; the agent should hold only what it needs.",
+    actors: ["blueprint", "agent", "entra", "resource"],
+    steps: [
+      {
+        lit: ["blueprint", "entra"],
+        title: "Blueprint requests exchange token T1",
+        sub: "The blueprint presents its credential (here a managed identity token, TUAMI) and names the child agent via fmi_path. Entra returns T1.",
+        token: "→ returns T1",
+        reqTitle: "Blueprint → Entra (token exchange)",
+        req: [
+          ["cm","# Get the FIC exchange token for the child agent"],
+          ["kw","POST"," /oauth2/v2.0/token"],
+          ["","client_id=","","AgentBlueprint"],
+          ["","scope=","","api://AzureADTokenExchange/.default"],
+          ["hl","fmi_path=","","AgentIdentity  ","cm","# which child to impersonate"],
+          ["","client_assertion=","tok-t1","TUAMI  ","cm","# managed identity (FIC)"],
+          ["","grant_type=","","client_credentials"]
+        ],
+        validate: null
+      },
+      {
+        lit: ["agent", "entra"],
+        title: "Agent sends token-exchange request with T1",
+        sub: "Now acting as the agent identity, it presents T1 as its client assertion and asks for the resource scope.",
+        token: "uses T1",
+        reqTitle: "Agent → Entra (resource request)",
+        req: [
+          ["kw","POST"," /oauth2/v2.0/token"],
+          ["","client_id=","","AgentIdentity"],
+          ["","scope=","","https://resource.example.com/.default"],
+          ["","client_assertion=","tok-t1","{T1}"],
+          ["","grant_type=","","client_credentials"]
+        ],
+        validate: null
+      },
+      {
+        lit: ["entra", "agent", "resource"],
+        title: "Entra issues the app-only resource token TR",
+        sub: "After validating T1, Entra returns an app-only access token. The agent calls the resource as itself.",
+        token: "← returns TR",
+        reqTitle: "Entra → Agent (token issued)",
+        req: [
+          ["cm","# Entra validates the chain, then issues TR"],
+          ["vd","T1 (aud) == Agent identity parent app == Agent blueprint"],
+          ["","",""],
+          ["","→ ","tok-tr","TR  ","cm","# app-only resource access token"]
+        ],
+        validate: "<strong>Validation:</strong> T1 (aud) == Agent identity parent app == Agent identity blueprint."
+      }
+    ],
+    notes: [
+      { h: "🔑 Managed identity", t: "TUAMI is the user-assigned managed identity token serving as the Federated Identity Credential — preferred over secrets." },
+      { h: "🛂 fmi_path", t: "Names the child agent (its client ID) so Entra knows which agent the blueprint impersonates." },
+      { h: "🎯 Least privilege", t: "Subjects use app-only access but should only hold the permissions they actually need; admins grant them." }
+    ]
+  },
+
+  obo: {
+    title: "Flow 2 — On-Behalf-Of (OBO)",
+    tags: ["Acts for a user", "Delegated", "jwt-bearer"],
+    desc: "Standard OAuth 2.0 On-Behalf-Of with agent-specific impersonation. A client passes the signed-in user's token (Tc) to the blueprint, which performs an FIC exchange; the agent then swaps T1 + Tc for a resource token in the user's context. Requires user consent.",
+    actors: ["user", "client", "blueprint", "agent", "entra", "resource"],
+    steps: [
+      {
+        lit: ["user", "client"],
+        title: "User authenticates with the client",
+        sub: "The user signs in to the client app and the client obtains a user access token (Tc).",
+        token: "→ Tc issued",
+        reqTitle: "User → Client (sign-in)",
+        req: [
+          ["cm","# User signs in; client receives a user access token"],
+          ["","→ ","tok-tc","Tc  ","cm","# user access (client) token"]
+        ],
+        validate: null
+      },
+      {
+        lit: ["client", "blueprint"],
+        title: "Client sends Tc to the blueprint",
+        sub: "The client forwards the user token to the agent blueprint so it can act on the user's behalf. Tc is the token used for the OBO exchange.",
+        token: "passes Tc",
+        reqTitle: "Client → Blueprint",
+        req: [
+          ["cm","# Client hands the user token to the agent"],
+          ["","payload: ","tok-tc","Tc"]
+        ],
+        validate: null
+      },
+      {
+        lit: ["blueprint", "entra"],
+        title: "Blueprint requests exchange token T1",
+        sub: "The blueprint presents its credential (TUAMI) and names the child agent via fmi_path. Entra returns T1.",
+        token: "→ returns T1",
+        reqTitle: "Blueprint → Entra (FIC exchange)",
+        req: [
+          ["kw","POST"," /oauth2/v2.0/token"],
+          ["","client_id=","","AgentBlueprint"],
+          ["","scope=","","api://AzureADTokenExchange/.default"],
+          ["hl","fmi_path=","","AgentIdentity"],
+          ["","client_assertion=","tok-t1","TUAMI  ","cm","# managed identity (FIC)"],
+          ["","grant_type=","","client_credentials"]
+        ],
+        validate: null
+      },
+      {
+        lit: ["agent", "entra"],
+        title: "Agent performs the OBO token exchange",
+        sub: "client_id switches to the agent identity — it's the entity doing the OBO. It sends both T1 (assertion) and Tc (the user token).",
+        token: "uses T1 + Tc",
+        reqTitle: "Agent → Entra (OBO exchange)",
+        req: [
+          ["kw","POST"," /oauth2/v2.0/token"],
+          ["hl","client_id=","","AgentIdentity  ","cm","# was blueprint before"],
+          ["","scope=","","https://resource.example.com/scope1"],
+          ["","client_assertion=","tok-t1","{T1}"],
+          ["","grant_type=","","urn:...:jwt-bearer"],
+          ["","assertion=","tok-tc","{Tc}  ","cm","# the user token"],
+          ["","requested_token_use=","","on_behalf_of"]
+        ],
+        validate: null
+      },
+      {
+        lit: ["entra", "agent", "resource"],
+        title: "Entra returns the resource token",
+        sub: "After validating both T1 and Tc, Entra issues a resource token in the user's context. The agent calls the API as the user.",
+        token: "← returns TR",
+        reqTitle: "Entra → Agent (token issued)",
+        req: [
+          ["vd","T1 (aud) == Agent blueprint client ID"],
+          ["vd","Tc (aud) == Agent blueprint client ID"],
+          ["","",""],
+          ["","→ ","tok-tr","TR  ","cm","# resource token in user context"]
+        ],
+        validate: "<strong>Validation:</strong> both token audiences must equal the blueprint client ID — T1 (aud) == blueprint and Tc (aud) == blueprint."
+      }
+    ],
+    notes: [
+      { h: "🔄 Refresh tokens", t: "OBO supports refresh_token grants for async / background processes that keep the user context alive." },
+      { h: "🧩 Permission inheritance", t: "With InheritDelegatedPermissions, agents inherit delegated permissions from the blueprint (FIC impersonation only, within the tenant) — less consent for multi-instance." },
+      { h: "🚪 No /authorize", t: "Blueprints can't start interactive auth. A redirect URI is for consent only (response_type=none)." }
+    ]
+  },
+
+  agentuser: {
+    title: "Flow 3 — Agent's user account",
+    tags: ["Acts as agent-user", "Credential chaining", "user_fic"],
+    desc: "The agent operates with user context through its own user account. The chain is blueprint → agent identity → agent's user account, each step using the previous token as a credential. The same client ID is reused across phases to prevent privilege escalation.",
+    actors: ["blueprint", "agent", "agentuser", "entra", "resource"],
+    steps: [
+      {
+        lit: ["blueprint", "entra"],
+        title: "Blueprint requests exchange token T1",
+        sub: "Blueprint presents its credential (TUAMI) and names the child agent via fmi_path. Entra returns T1 — used for agent identity impersonation.",
+        token: "→ returns T1",
+        reqTitle: "Blueprint → Entra (FIC exchange)",
+        req: [
+          ["kw","POST"," /oauth2/v2.0/token"],
+          ["","client_id=","","AgentBlueprint"],
+          ["","scope=","","api://AzureADTokenExchange/.default"],
+          ["hl","fmi_path=","","AgentIdentity"],
+          ["","client_assertion=","tok-t1","TUAMI"],
+          ["","grant_type=","","client_credentials"]
+        ],
+        validate: null
+      },
+      {
+        lit: ["agent", "entra"],
+        title: "Agent requests token T2 for user-account impersonation",
+        sub: "The agent presents T1 as its client assertion. Entra validates T1's audience and returns T2 — used to impersonate the agent's user account.",
+        token: "→ returns T2",
+        reqTitle: "Agent → Entra (second exchange)",
+        req: [
+          ["kw","POST"," /oauth2/v2.0/token"],
+          ["","client_id=","","AgentIdentity"],
+          ["","scope=","","api://AzureADTokenExchange/.default"],
+          ["","client_assertion=","tok-t1","{T1}"],
+          ["","grant_type=","","client_credentials"]
+        ],
+        validate: "<strong>Validation:</strong> T1 (aud) == Agent identity parent app == Agent identity blueprint."
+      },
+      {
+        lit: ["agent", "agentuser", "entra"],
+        title: "Agent sends the OBO exchange with T1 + T2",
+        sub: "Includes both tokens plus the agent user's UPN. grant_type is user_fic. Entra validates T2's audience equals the agent identity.",
+        token: "uses T1 + T2",
+        reqTitle: "Agent → Entra (user_fic OBO)",
+        req: [
+          ["kw","POST"," /oauth2/v2.0/token"],
+          ["","client_id=","","AgentIdentity"],
+          ["","scope=","","https://resource.example.com/scope1"],
+          ["","client_assertion=","tok-t1","{T1}"],
+          ["","user_federated_identity_credential=","tok-t2","{T2}"],
+          ["","username=","","agentuser@contoso.com"],
+          ["hl","grant_type=","","user_fic"],
+          ["","requested_token_use=","","on_behalf_of"]
+        ],
+        validate: "<strong>Validation:</strong> T2 (aud) == Agent identity."
+      },
+      {
+        lit: ["entra", "agentuser", "resource"],
+        title: "Entra issues the resource token",
+        sub: "With the full chain validated, Entra issues the resource token. The agent acts as its own user account against the API.",
+        token: "← returns TR",
+        reqTitle: "Entra → Agent (token issued)",
+        req: [
+          ["cm","# Credential chain validated end to end"],
+          ["vd","blueprint → Agent identity → Agent's user account"],
+          ["","",""],
+          ["","→ ","tok-tr","TR  ","cm","# resource token as agent-user"]
+        ],
+        validate: "<strong>Chaining:</strong> each step uses the prior token as a credential. The same client ID is reused across phases to prevent privilege escalation."
+      }
+    ],
+    notes: [
+      { h: "🔗 Credential chaining", t: "blueprint → agent identity → agent's user account. Each token becomes the next step's credential — a secure delegation pathway." },
+      { h: "🛡️ Anti-escalation", t: "The same client ID must be used for both phases to prevent privilege-escalation attacks." },
+      { h: "📬 Why use it", t: "Best when the agent has its own user principal — e.g. its own mailbox — and must act as that user." }
+    ]
+  }
+};
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+let curFlow = "autonomous";
+let curStep = -1;
+let playTimer = null;
+
+const laneEl = document.getElementById("lane");
+const stepsEl = document.getElementById("steps");
+const reqBodyEl = document.getElementById("reqBody");
+const reqTitleEl = document.getElementById("reqTitle");
+const indicatorEl = document.getElementById("stepIndicator");
+
+function renderLane(litSet) {
+  const f = FLOWS[curFlow];
+  laneEl.innerHTML = f.actors.map((id, i) => {
+    const a = ACTORS[id];
+    const lit = litSet && litSet.includes(id) ? "lit" : "";
+    return `<div class="lane-actor ${lit}"><div class="la-ic">${a.ic}</div><div class="la-name">${a.name}</div><div class="la-role">${a.role}</div></div>`;
+  }).join("");
+}
+
+function renderSteps() {
+  const f = FLOWS[curFlow];
+  stepsEl.innerHTML = f.steps.map((s, i) => {
+    const shown = i <= curStep ? "shown" : "";
+    const active = i === curStep ? "active" : "";
+    return `<div class="step ${shown} ${active}" data-i="${i}">
+      <div class="s-num">${i+1}</div>
+      <div class="s-body">
+        <strong>${s.title}</strong>
+        <span>${s.sub}</span>
+        ${s.token ? `<div class="s-token">🎫 ${s.token}</div>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+  stepsEl.querySelectorAll(".step").forEach(st => {
+    st.addEventListener("click", () => { curStep = parseInt(st.dataset.i); stopPlay(); update(); });
+  });
+}
+
+function fmtReq(lines) {
+  return lines.map(parts => {
+    if (parts.length === 0 || (parts[0] === "" && parts[1] === "")) return "";
+    const tag = parts[0];
+    if (tag === "cm") return `<span class="cm">${parts[1]}</span>`;
+    if (tag === "vd") return `<span class="cm">✓ </span><span style="color:var(--cp-success)">${parts[1]}</span>`;
+    if (tag === "kw") return `<span class="kw">${parts[1]}</span>${parts[2]||""}`;
+    // generic key=value with optional token color + trailing comment
+    let key = parts[1] || "";
+    let tokClass = parts[2] || "";
+    let val = parts[3] || "";
+    let extra = "";
+    // handle trailing comment pairs
+    for (let i = 4; i < parts.length; i += 2) {
+      if (parts[i] === "cm") extra += ` <span class="cm">${parts[i+1]}</span>`;
+    }
+    const keyHtml = tag === "hl" ? `<span class="kw">${key}</span>` : `<span style="color:var(--cp-text)">${key}</span>`;
+    const valHtml = tokClass ? `<span class="tok ${tokClass}">${val}</span>` : `<span style="color:var(--cp-text-muted)">${val}</span>`;
+    return `&amp;${keyHtml}${valHtml}${extra}`;
+  }).join("\n");
+}
+
+function update() {
+  const f = FLOWS[curFlow];
+  if (curStep < 0) {
+    renderLane([]);
+    reqBodyEl.innerHTML = `<p class="empty">Click “Next step” to begin the token exchange…</p>`;
+    reqTitleEl.textContent = "Request";
+  } else {
+    const s = f.steps[curStep];
+    renderLane(s.lit);
+    let html = `<pre>${fmtReq(s.req)}</pre>`;
+    if (s.validate) html += `<div class="validate">${s.validate}</div>`;
+    reqBodyEl.innerHTML = html;
+    reqTitleEl.textContent = s.reqTitle;
+  }
+  renderSteps();
+  indicatorEl.textContent = curStep < 0 ? `0 / ${f.steps.length}` : `${curStep+1} / ${f.steps.length}`;
+  document.getElementById("btnNext").textContent = (curStep >= f.steps.length - 1) ? "↺ Restart" : "Next step →";
+}
+
+function renderFlowMeta() {
+  const f = FLOWS[curFlow];
+  document.getElementById("stageTitle").textContent = f.title;
+  document.getElementById("stageTags").innerHTML = f.tags.map(t => `<span class="sh-tag">${t}</span>`).join("");
+  document.getElementById("stageDesc").textContent = f.desc;
+  document.getElementById("notes").innerHTML = f.notes.map(n => `<div class="note"><h5>${n.h}</h5><p>${n.t}</p></div>`).join("");
+}
+
+function selectFlow(key) {
+  curFlow = key; curStep = -1; stopPlay();
+  document.querySelectorAll("#flowTabs .flow-tab").forEach(t => t.classList.toggle("active", t.dataset.flow === key));
+  renderFlowMeta();
+  update();
+}
+
+function nextStep() {
+  const f = FLOWS[curFlow];
+  if (curStep >= f.steps.length - 1) { curStep = -1; update(); return; }
+  curStep++; update();
+}
+function startPlay() {
+  stopPlay();
+  if (curStep >= FLOWS[curFlow].steps.length - 1) curStep = -1;
+  document.getElementById("btnPlay").textContent = "⏸ Pause";
+  playTimer = setInterval(() => {
+    const f = FLOWS[curFlow];
+    if (curStep >= f.steps.length - 1) { stopPlay(); return; }
+    curStep++; update();
+  }, 1700);
+}
+function stopPlay() {
+  if (playTimer) { clearInterval(playTimer); playTimer = null; }
+  document.getElementById("btnPlay").textContent = "▶ Auto-play";
+}
+
+document.querySelectorAll("#flowTabs .flow-tab").forEach(t => {
+  t.addEventListener("click", () => selectFlow(t.dataset.flow));
+});
+document.getElementById("btnNext").addEventListener("click", () => { stopPlay(); nextStep(); });
+document.getElementById("btnPlay").addEventListener("click", () => { if (playTimer) stopPlay(); else startPlay(); });
+document.getElementById("btnReset").addEventListener("click", () => { stopPlay(); curStep = -1; update(); });
+document.getElementById("themeToggle").addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme");
+  document.documentElement.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
+});
+
+selectFlow("autonomous");
+</script>
+</body>
+</html>

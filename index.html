@@ -386,6 +386,7 @@ footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevate
       <a href="#lifecycle">Lifecycle</a>
       <a href="#story">Guided story</a>
       <a href="#context">A365 map</a>
+      <a href="auth-flows.html" style="border:1px solid var(--cp-accent);color:var(--cp-accent)">OAuth deep dive ↗</a>
     </nav>
     <button class="theme-toggle" id="themeToggle" title="Toggle theme">◑</button>
   </div>
@@ -635,6 +636,15 @@ footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevate
       <h5>Ideal use cases</h5>
       <div class="uc-grid" id="flowUseCases"></div>
     </div>
+  </div>
+
+  <div style="margin-top:24px;background:var(--cp-surface);border:1px solid var(--cp-accent);border-radius:16px;padding:24px 26px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;box-shadow:0 0 2px rgba(0,0,0,0.12),0 1px 2px rgba(0,0,0,0.14)">
+    <div style="max-width:640px">
+      <div style="font-size:.74rem;text-transform:uppercase;letter-spacing:.12em;color:var(--cp-accent);font-weight:700;margin-bottom:8px">Go deeper · protocol level</div>
+      <h3 style="font-size:1.2rem;margin-bottom:6px">Want the actual OAuth 2.0 token exchanges?</h3>
+      <p style="font-size:.92rem;color:var(--cp-text-muted)">Step through all three Entra Agent ID flows — <strong>Autonomous app</strong>, <strong>On-Behalf-Of</strong>, and <strong>Agent's user account</strong> — with the real HTTP requests, FIC token chains (T1 / T2 / Tc / TR), and Entra validations, animated step by step.</p>
+    </div>
+    <a href="auth-flows.html" class="btn btn-primary">Open the OAuth deep dive →</a>
   </div>
 </section>
 
