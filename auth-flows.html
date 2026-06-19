@@ -269,12 +269,25 @@ footer { border-top: 1px solid var(--cp-border); background: var(--cp-bg-elevate
   <h2 class="section-title">Concepts every flow relies on</h2>
   <p class="section-sub">All three flows are built from the same primitives. Get these and the flows become easy to read.</p>
   <div class="concepts">
-    <div class="concept"><div class="c-ic">🧬</div><h4>Blueprint impersonates its agent</h4><p>The agent identity blueprint (actor) obtains a token <em>for</em> its child agent identity (subject). A blueprint can impersonate many agents; an agent has exactly one blueprint.</p></div>
-    <div class="concept"><div class="c-ic">🎫</div><h4>FIC token exchange</h4><p>The blueprint presents a credential and gets back <code>T1</code> — a token-exchange token (Federated Identity Credential) used to act as the agent.</p></div>
-    <div class="concept"><div class="c-ic">🛂</div><h4><code>fmi_path</code></h4><p>The agent identity's client ID. It tells Entra ID <em>which</em> child agent the blueprint is impersonating during the exchange.</p></div>
-    <div class="concept"><div class="c-ic">🔑</div><h4>Managed identity = preferred credential</h4><p>Use a managed identity (UAMI) token <code>TUAMI</code> as the FIC. Avoid client secrets in production — prefer FIC or certificates.</p></div>
-    <div class="concept"><div class="c-ic">🚫</div><h4>No interactive flows</h4><p>All agents are <strong>confidential clients</strong>. <code>/authorize</code> is never used — auth happens only via programmatic token exchanges.</p></div>
-    <div class="concept"><div class="c-ic">🏛️</div><h4>Single-tenant agents</h4><p>Agent identities always operate within one tenant's security and policy boundaries, regardless of the blueprint's tenancy.</p></div>
+    <div class="concept"><div class="c-ic">🧬</div><h4>Blueprint impersonates its agent</h4><p>The agent identity <strong>blueprint</strong> (the actor) gets a token <em>for</em> its child <strong>agent identity</strong> (the subject). Like a manager who can sign on behalf of their direct reports: one blueprint can stand in for many agents, but each agent answers to exactly one blueprint.</p></div>
+    <div class="concept"><div class="c-ic">🎫</div><h4>FIC — federated identity credential</h4><p>Instead of mailing a password around, the blueprint proves who it is and gets back a short-lived <em>exchange token</em> (<code>T1</code>). Think of <code>T1</code> as a temporary backstage pass that lets it act as the agent — no stored secret involved.</p></div>
+    <div class="concept"><div class="c-ic">🔑</div><h4>TUAMI — the managed-identity token</h4><p><code>TUAMI</code> is just the token from a <strong>managed identity</strong> (a credential Azure creates and rotates for you, with nothing to store). It's the preferred thing to present as the FIC — far safer than a client secret you'd have to guard.</p></div>
+    <div class="concept"><div class="c-ic">🛂</div><h4><code>fmi_path</code> — "which agent?"</h4><p>One blueprint can represent many agents, so the request includes <code>fmi_path</code> — the specific agent's client ID. It simply tells Entra ID <em>which</em> child agent the blueprint is standing in for this time.</p></div>
+    <div class="concept"><div class="c-ic">🤝</div><h4>OBO — on-behalf-of</h4><p>When a real person is involved, the agent takes <em>their</em> sign-in token and trades it for a new one so it can call APIs <strong>as that user</strong>, with the user's own permissions. "On behalf of" = acting for someone, with their authority, not its own.</p></div>
+    <div class="concept"><div class="c-ic">⚙️</div><h4>Client-credentials — "acting as myself"</h4><p>The opposite of OBO: no user, no human present. The agent authenticates as <em>itself</em> to get a token — used for autonomous, background work like scheduled jobs.</p></div>
+    <div class="concept"><div class="c-ic">🚫</div><h4>No interactive sign-in</h4><p>Agents are <strong>confidential clients</strong> — trusted server-side apps that keep secrets. There's no login pop-up (<code>/authorize</code>); every token is obtained quietly through these programmatic exchanges.</p></div>
+    <div class="concept"><div class="c-ic">🏛️</div><h4>Single-tenant agents</h4><p>An agent identity always lives and acts inside <em>one</em> organization's (tenant's) security and policy walls, no matter how its parent blueprint is set up.</p></div>
+  </div>
+
+  <div style="margin-top:26px;background:var(--cp-bg-elevated);border:1px solid var(--cp-border);border-radius:18px;padding:24px 26px">
+    <h3 style="font-size:1.05rem;margin-bottom:6px">🔤 The token letters, decoded</h3>
+    <p style="font-size:.9rem;color:var(--cp-text-muted);margin-bottom:16px">Every flow is a relay race where one token is traded for the next. Here's what each letter you'll see in the requests actually means — in order of appearance.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+      <div class="concept" style="box-shadow:none"><div class="c-ic" style="color:var(--cp-success)">🟢</div><h4><code>Tc</code> — client token</h4><p>The <em>user's</em> sign-in token, handed in by the app the person logged into. Only appears in the on-behalf-of flow, because it's the only one with a human.</p></div>
+      <div class="concept" style="box-shadow:none"><div class="c-ic" style="color:var(--cp-link)">🔵</div><h4><code>T1</code> — exchange token</h4><p>The blueprint's backstage pass (the FIC). It's the proof "I'm allowed to act as this agent," used to request the real token.</p></div>
+      <div class="concept" style="box-shadow:none"><div class="c-ic" style="color:var(--cp-warning)">🟡</div><h4><code>T2</code> — second exchange</h4><p>Only in the agent's-user-account flow: a further pass that lets the agent step into <em>its own</em> user account before the final request.</p></div>
+      <div class="concept" style="box-shadow:none"><div class="c-ic" style="color:#8b5cf6">🟣</div><h4><code>TR</code> — resource token</h4><p>The finish line: the actual access token the agent presents to the API (Graph, your service, etc.) to get the work done.</p></div>
+    </div>
   </div>
 </section>
 
